@@ -64,17 +64,10 @@ function getRecordValue(record, key) {
   return getRowValue(record, key);
 }
 
-function setCorsHeaders(output) {
-  output.setHeader('Access-Control-Allow-Origin', '*');
-  output.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  output.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+function jsonResponse(payload, callback) {
+  const body = callback ? `${callback}(${JSON.stringify(payload)});` : JSON.stringify(payload);
+  const output = ContentService.createTextOutput(body).setMimeType(callback ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
   return output;
-}
-
-function jsonResponse(payload, statusCode = 200) {
-  const output = ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
-  output.setResponseCode(statusCode);
-  return setCorsHeaders(output);
 }
 
 function createSuccess(data, meta = null) {
@@ -95,10 +88,19 @@ function handleLogin(body) {
   const password = String(body.password || '').trim();
   if (!username || !password) return createError('validation_error', 'username and password are required');
   const admins = getEntityRows(SHEET_CONFIG.admins, {});
-  const admin = admins.find((a) => String(getRowValue(a, 'username')) === username && String(getRowValue(a, 'password')) === password);
+  const admin = admins.find((a) => {
+    const storedUsername = String(getRowValue(a, 'username')).trim();
+    const storedPassword = String(getRowValue(a, 'password')).trim();
+    const storedPasswordHash = String(getRowValue(a, 'password_hash')).trim();
+    return storedUsername === username && (storedPassword === password || storedPasswordHash === password);
+  });
   if (!admin) return createError('invalid_credentials', 'بيانات الدخول غير صحيحة');
-  const user = { id: getRowValue(admin, 'id') || getRowValue(admin, 'username'), username: getRowValue(admin, 'username'), role: getRowValue(admin, 'role') || 'Admin' };
-  // generate a simple token
+  const user = {
+    id: getRowValue(admin, 'id') || getRowValue(admin, 'username'),
+    username: getRowValue(admin, 'username'),
+    role: getRowValue(admin, 'role') || 'Admin',
+    email: getRowValue(admin, 'email') || ''
+  };
   const token = generateId('token');
   return createSuccess({ token, user });
 }
@@ -199,9 +201,10 @@ function parseAction(action) {
 }
 
 function sanitizeParams(params) {
+  const reserved = ['action', 'callback', 'page', 'pageSize', 'limit', 'offset', 'sort', 'order', 'range'];
   const sanitized = {};
   Object.keys(params || {}).forEach((key) => {
-    if (key === 'action') return;
+    if (reserved.includes(key)) return;
     sanitized[key] = params[key];
   });
   return sanitized;
@@ -211,10 +214,11 @@ function doGet(e) {
   const action = e.parameter.action || 'settings';
   const params = sanitizeParams(e.parameter || {});
   const route = parseAction(action);
+  const callback = String(e.parameter.callback || '').trim();
 
   try {
     if (route.resource === 'login') {
-      return jsonResponse(handleLogin(params));
+      return jsonResponse(handleLogin(params), callback);
     }
     if (route.resource === 'settings') {
       return jsonResponse(createSuccess(handleGetSettings(params)));
@@ -265,10 +269,17 @@ function handleGetStudent(params) {
 
 function handleGetSettings(params) {
   const settings = getEntityRows(SHEET_CONFIG.settings, {});
+  const map = settings.reduce((acc, item) => {
+    const key = String(getRowValue(item, 'key') || '').trim();
+    if (!key) return acc;
+    acc[key] = getRowValue(item, 'value');
+    return acc;
+  }, {});
   if (params.key) {
-    return settings.filter((item) => String(getRowValue(item, 'key')).toLowerCase() === String(params.key).toLowerCase());
+    const requestedKey = String(params.key || '').trim();
+    return requestedKey ? map[requestedKey] : {};
   }
-  return settings;
+  return map;
 }
 
 function handleGetActiveSession() {
@@ -548,23 +559,37 @@ function handleSubmitAttendance(body) {
 }
 
 function handleSaveSettings(body) {
-  if (!body.key) return createError('validation_error', 'Setting key is required', { key: 'required' });
   const settings = getEntityRows(SHEET_CONFIG.settings, {});
-  const existing = findRow(settings, 'key', body.key);
   const now = new Date().toISOString();
-  const record = {
-    id: existing ? getRowValue(existing, 'id') : generateId('setting'),
-    key: body.key,
-    value: body.value || '',
-    description: body.description || getRowValue(existing, 'description') || '',
-    updated_at: now
-  };
-  if (existing) {
-    updateRow(SHEET_CONFIG.settings, existing.__rowNum, record);
-  } else {
-    appendRow(SHEET_CONFIG.settings, record);
+  const changed = [];
+  const values = [];
+
+  Object.keys(body || {}).forEach((key) => {
+    const value = body[key];
+    if (value === undefined) return;
+    if (key === 'action') return;
+    const existing = findRow(settings, 'key', key);
+    const record = {
+      id: existing ? getRowValue(existing, 'id') : generateId('setting'),
+      key,
+      value: value === null || value === undefined ? '' : String(value),
+      description: getRowValue(existing, 'description') || '',
+      updated_at: now
+    };
+    if (existing) {
+      updateRow(SHEET_CONFIG.settings, existing.__rowNum, record);
+      changed.push(key);
+    } else {
+      appendRow(SHEET_CONFIG.settings, record);
+      changed.push(key);
+    }
+    values.push(record);
+  });
+
+  if (!values.length) {
+    return createError('validation_error', 'No settings provided');
   }
-  return createSuccess(record);
+  return createSuccess({ updated: changed, values });
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {

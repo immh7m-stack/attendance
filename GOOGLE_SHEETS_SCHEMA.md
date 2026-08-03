@@ -130,12 +130,19 @@ id,student_id,student_name,session_id,department,level,date,time,status,distance
 - `target` (String)
 - `result` (String)
 - `timestamp` (Datetime)
+- `date` (Datetime, optional alias for `timestamp`)
 - `details` (String)
+- `description` (String, optional alias for `details`)
+- `user` (String, optional alias for `actor`)
 
 ### Sample header row
 ```text
 id,actor,action,target,result,timestamp,details
 ```
+
+### Notes
+- الواجهة تدعم أيضًا الأعمدة البديلة `date` و`description` و`user` لمطابقة بيانات السجل الموجودة حالياً.
+- إذا كنت تستخدم `timestamp`، فسيتم عرضها كالتاريخ في واجهة السجلات.
 
 ---
 
@@ -146,6 +153,7 @@ id,actor,action,target,result,timestamp,details
 - `id` (String, Primary Key)
 - `username` (String, Unique)
 - `password_hash` (String)
+- `password` (String, Optional)
 - `role` (String)
 - `email` (String)
 - `status` (String)
@@ -155,12 +163,13 @@ id,actor,action,target,result,timestamp,details
 
 ### Sample header row
 ```text
-id,username,password_hash,role,email,status,last_login,created_at,updated_at
+id,username,password_hash,password,role,email,status,last_login,created_at,updated_at
 ```
 
 ### Validation rules
 - `username` مطلوب ومميز.
-- `password_hash` مطلوب.
+- `password_hash` مطلوب ما لم يكن هناك عمود `password` صالح.
+- `password` يُقبل كبديل مؤقت أو للتوافق، لكن الأفضل استخدام `password_hash`.
 - `role` يجب أن يكون أحد: `Admin`, `Super Admin`, `Viewer`.
 
 ---

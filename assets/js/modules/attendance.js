@@ -15,7 +15,7 @@ export function generateAttendanceObject(student, session, location) {
     studentName: student.name,
     department: student.department,
     level: student.level,
-    subject: session?.subject || 'Unknown',
+    subject: session?.subjectName || session?.subject || '',
     sessionId: session?.sessionId || null,
     latitude: location.latitude,
     longitude: location.longitude,
@@ -42,7 +42,7 @@ export async function initStudentPage() {
   const form = document.querySelector('#attendance-form');
   if (!form) return;
 
-  // Load active session (Mock) and render summary in the Student Home Screen
+  // Load active session and render summary in the Student Home Screen
   try {
     notifications.loading(true, 'جاري جلب بيانات الجلسة...');
     const res = await sessionService.getActiveSession();
@@ -51,7 +51,9 @@ export async function initStudentPage() {
       const s = res.data;
       // store active session in state for later validation
       setState('activeSession', s);
-      container.innerHTML = `<div class="session-card"><strong>${s.subjectName || s.subject || 'جلسة'}</strong> — ${s.date} ${s.start || ''} - ${s.end || ''}<br>القاعة: ${s.room || '-'} — نصف القطر: ${s.location?.radius || s.radius || 300} متر</div>`;
+      const sessionLat = s.location?.latitude || s.latitude || '';
+      const sessionLng = s.location?.longitude || s.longitude || '';
+      container.innerHTML = `<div class="session-card"><strong>${s.subjectName || s.subject || 'جلسة'}</strong> — ${s.date} ${s.start || ''} - ${s.end || ''}<br>القاعة: ${s.room || '-'} — نصف القطر: ${s.location?.radius || s.radius || 300} متر${sessionLat && sessionLng ? `<br>الموقع: ${sessionLat}, ${sessionLng}` : ''}</div>`;
     } else if (container) {
       container.textContent = 'لا توجد جلسة مفتوحة حالياً.';
     }
@@ -78,6 +80,10 @@ export async function initStudentPage() {
       level: document.querySelector('#level').value,
     };
 
+    const manualLatitude = parseFloat(document.querySelector('#latitude')?.value.trim() || '');
+    const manualLongitude = parseFloat(document.querySelector('#longitude')?.value.trim() || '');
+    const useManualLocation = !Number.isNaN(manualLatitude) && !Number.isNaN(manualLongitude);
+
     if (!validation.validateAttendance(student)) {
       setState('attendance', { validationErrors: ['يرجى إكمال جميع الحقول بشكل صحيح.'] });
       notifications.error('يرجى إكمال جميع الحقول بشكل صحيح.');
@@ -86,8 +92,8 @@ export async function initStudentPage() {
 
     const active = getState('activeSession') || null;
     const session = {
-      sessionId: getQueryParam('sessionId') || (active && (active.id || active.sessionId)) || 'default-session',
-      subject: getQueryParam('subject') || (active && (active.subjectName || active.subject)) || 'General',
+      sessionId: getQueryParam('sessionId') || (active && (active.id || active.sessionId)) || null,
+      subject: getQueryParam('subject') || (active && (active.subjectName || active.subject)) || '',
       latitude: parseFloat(getQueryParam('lat') || (active && (active.location?.latitude || active.latitude)) || '0'),
       longitude: parseFloat(getQueryParam('lng') || (active && (active.location?.longitude || active.longitude)) || '0'),
       radius: parseInt(getQueryParam('radius') || (active && (active.location?.radius || active.radius)) || '300', 10),
@@ -102,8 +108,14 @@ export async function initStudentPage() {
 
     try {
       notifications.loading(true, 'جاري إرسال بيانات الحضور...');
-      const currentLocation = await locationModule.getCurrentLocation();
-      locationModule.showLocationStatus('تم التحقق من الموقع.', true);
+      let currentLocation;
+      if (useManualLocation) {
+        currentLocation = { latitude: manualLatitude, longitude: manualLongitude, accuracy: 0 };
+        locationModule.showLocationStatus('تم استخدام الإحداثيات اليدوية.', true);
+      } else {
+        currentLocation = await locationModule.getCurrentLocation();
+        locationModule.showLocationStatus('تم التحقق من الموقع.', true);
+      }
       const locationResult = locationModule.isInsideRadius(currentLocation, { latitude: session.latitude, longitude: session.longitude }, session.radius);
       if (!locationResult.inside) {
         notifications.loading(false);

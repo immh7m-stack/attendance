@@ -5,7 +5,15 @@ let currentItems = [];
 let currentPage = 1;
 
 function buildRows(items) {
-  return items.map((item) => [item.subjectName || '-', item.subjectId || '-', item.date || '-', item.start || '-', item.end || '-', item.location?.radius || '-', item.status || '-']);
+  return items.map((item) => [
+    item.subjectName || item.subject_name || '-',
+    item.sessionId || item.session_id || '-',
+    item.date || '-',
+    item.start_time || item.start || '-',
+    item.end_time || item.end || '-',
+    item.radius || '-',
+    item.status || '-',
+  ]);
 }
 
 function renderSessions(container, items) {
@@ -18,7 +26,7 @@ function renderSessions(container, items) {
   if (!items.length) {
     card.querySelector('.card-body').appendChild(createEmptyState('لا توجد جلسات', 'لا توجد جلسات متاحة حاليًا.'));
   } else {
-    card.querySelector('.card-body').appendChild(createTable(['اسم الجلسة', 'المادة', 'التاريخ', 'البداية', 'النهاية', 'GPS Radius', 'الحالة'], buildRows(items)));
+    card.querySelector('.card-body').appendChild(createTable(['اسم الجلسة', 'Session ID', 'التاريخ', 'البداية', 'النهاية', 'الحالة'], buildRows(items)));
     card.querySelector('.card-body').appendChild(createPagination(currentPage, Math.max(1, Math.ceil(currentItems.length / 5)), (page) => {
       currentPage = page;
       const start = (page - 1) * 5;
@@ -28,6 +36,18 @@ function renderSessions(container, items) {
 
   container.innerHTML = '';
   container.appendChild(card);
+
+  const searchInput = document.getElementById('session-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', async () => {
+      const query = searchInput.value.trim();
+      const result = await sessionService.getSessions({ query });
+      const filtered = result?.status === 'success' ? result.data : [];
+      currentItems = filtered;
+      currentPage = 1;
+      renderSessions(container, filtered.slice(0, 5));
+    });
+  }
 }
 
 export async function initSessionsPage(container) {

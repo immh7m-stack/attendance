@@ -1,15 +1,17 @@
 import { createCard } from './components.js';
 import { success, error } from './notifications.js';
+import { getCurrentUser } from '../services/authService.js';
 
 export async function initProfilePage(container) {
   if (!container) return;
+  const currentUser = getCurrentUser() || {};
   const card = createCard('الملف الشخصي', '');
   card.querySelector('.card-body').innerHTML = `
     <div class="profile-grid">
-      <div><strong>اسم المشرف</strong><p>أحمد محمد</p></div>
-      <div><strong>البريد الإلكتروني</strong><p>admin@example.com</p></div>
-      <div><strong>الصلاحيات</strong><p>Admin / Manager</p></div>
-      <div><strong>آخر تسجيل دخول</strong><p>2026-08-02 09:30</p></div>
+      <div><strong>اسم المشرف</strong><p>${currentUser.user?.username || 'غير معروف'}</p></div>
+      <div><strong>البريد الإلكتروني</strong><p>${currentUser.user?.email || 'غير متوفر'}</p></div>
+      <div><strong>الصلاحيات</strong><p>${currentUser.user?.role || 'Admin'}</p></div>
+      <div><strong>تاريخ الجلسة</strong><p>${new Date(currentUser.createdAt || Date.now()).toLocaleString('ar-EG')}</p></div>
     </div>
     <form class="settings-form">
       <label>كلمة المرور الجديدة<input id="newPassword" type="password" /></label>

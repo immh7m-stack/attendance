@@ -1,4 +1,5 @@
 import { dashboardService } from '../services/dashboardService.js';
+import { sessionService } from '../services/sessionService.js';
 import { setState } from '../state.js';
 import { createCard, createStatisticCard, createTable, createEmptyState } from './components.js';
 
@@ -15,25 +16,66 @@ export async function getStatistics() {
   };
 }
 
+function buildAttendanceRows(items) {
+  return items.map((item) => [
+    item.studentName || item.studentId || '-',
+    item.studentId || '-',
+    item.date || '-',
+    item.time || '-',
+    item.status || '-',
+    item.distance !== undefined ? item.distance : '-',
+  ]);
+}
+
+function buildSessionRows(items) {
+  return items.map((item) => [
+    item.subjectName || item.subject || '-',
+    item.sessionId || item.session_id || '-',
+    item.date || '-',
+    item.start_time || item.start || '-',
+    item.end_time || item.end || '-',
+    item.status || '-',
+  ]);
+}
+
 export async function initDashboardPage(container) {
   if (!container) return;
+
   const stats = await getStatistics();
   setState('admin', { summary: stats });
+
+  const attendanceResult = await dashboardService.getRecentCheckIns(5);
+  const recentAttendance = attendanceResult?.status === 'success' ? attendanceResult.data : [];
+
+  const sessionResult = await sessionService.getSessions({ page: 1, pageSize: 5 });
+  const recentSessions = sessionResult?.status === 'success' ? sessionResult.data : [];
 
   const grid = document.createElement('div');
   grid.className = 'card-grid';
   grid.appendChild(createStatisticCard('إجمالي الطلاب', stats.totalStudents, 'محدث'));
   grid.appendChild(createStatisticCard('الحضور اليوم', stats.presentToday, 'مقبول'));
-  grid.appendChild(createStatisticCard('الغياب اليوم', Math.max(0, stats.totalStudents - stats.presentToday), 'محتاج مراجعة'));
-  grid.appendChild(createStatisticCard('عدد الجلسات', stats.openSessions, 'نشطة'));
-  grid.appendChild(createStatisticCard('الجلسة النشطة', 'برمجة الويب', 'قاعة A'));
-  grid.appendChild(createStatisticCard('نسبة الحضور', `${stats.attendanceRate}%`, 'جيد'));
+  grid.appendChild(createStatisticCard('الجلسات المفتوحة', stats.openSessions, 'نشطة'));
+  grid.appendChild(createStatisticCard('نسبة الحضور', `${stats.attendanceRate}%`, 'اليومي'));
 
   const recentCard = createCard('آخر عمليات تسجيل', '');
-  recentCard.querySelector('.card-body').appendChild(createTable(['الطالب', 'الوقت', 'الحالة'], [['أحمد علي', '09:12', 'حاضر'], ['سارة محمود', '09:20', 'حاضر']]));
+  if (recentAttendance.length) {
+    recentCard.querySelector('.card-body').appendChild(createTable(
+      ['الطالب', 'Student ID', 'التاريخ', 'الوقت', 'الحالة', 'المسافة'],
+      buildAttendanceRows(recentAttendance)
+    ));
+  } else {
+    recentCard.querySelector('.card-body').appendChild(createEmptyState('لا توجد عمليات تسجيل', 'لم يتم تسجيل حضور مؤخراً.'));
+  }
 
   const sessionsCard = createCard('آخر الجلسات', '');
-  sessionsCard.querySelector('.card-body').appendChild(createTable(['الجلسة', 'المادة', 'الحالة'], [['جلسة 1', 'برمجة الويب', 'مفتوحة'], ['جلسة 2', 'قواعد البيانات', 'مغلقة']]));
+  if (recentSessions.length) {
+    sessionsCard.querySelector('.card-body').appendChild(createTable(
+      ['المادة', 'Session ID', 'التاريخ', 'البداية', 'النهاية', 'الحالة'],
+      buildSessionRows(recentSessions)
+    ));
+  } else {
+    sessionsCard.querySelector('.card-body').appendChild(createEmptyState('لا توجد جلسات', 'لا توجد جلسات متاحة حالياً.'));
+  }
 
   const actionsCard = createCard('Quick Actions', '');
   actionsCard.querySelector('.card-body').innerHTML = '<div class="action-list"><button class="btn btn-primary">فتح جلسة جديدة</button><button class="btn btn-secondary">تصدير تقرير</button></div>';

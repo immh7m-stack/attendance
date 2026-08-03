@@ -8,14 +8,24 @@ function buildRows(items) {
   return items.map((item) => [item.studentId || '-', item.name || '-', item.faculty || '-', item.department || '-', item.level || '-', item.status || '-']);
 }
 
+function getUniqueOptions(items, key) {
+  return Array.from(new Set(items.map((item) => item[key] || '').filter(Boolean))).sort();
+}
+
 function renderStudents(container, items) {
   const card = createCard('جدول الطلاب', '');
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
   toolbar.appendChild(createSearchBox('بحث بالاسم أو الرقم...', '', 'student-search'));
+
+  const departments = getUniqueOptions(currentItems, 'department');
+  const levels = getUniqueOptions(currentItems, 'level');
   const filters = document.createElement('div');
   filters.className = 'toolbar-group';
-  filters.innerHTML = '<select><option>الكل</option><option>علوم الحاسوب</option><option>تقنية المعلومات</option></select><select><option>الكل</option><option>Level 1</option><option>Level 2</option></select>';
+  filters.innerHTML = `
+    <select id="studentDepartmentFilter"><option value="">الكل الأقسام</option>${departments.map((dept) => `<option value="${dept}">${dept}</option>`).join('')}</select>
+    <select id="studentLevelFilter"><option value="">الكل المستويات</option>${levels.map((level) => `<option value="${level}">${level}</option>`).join('')}</select>
+  `;
   toolbar.appendChild(filters);
   card.querySelector('.card-body').appendChild(toolbar);
 
@@ -32,6 +42,29 @@ function renderStudents(container, items) {
 
   container.innerHTML = '';
   container.appendChild(card);
+
+  const searchInput = document.getElementById('student-search');
+  const departmentFilter = document.getElementById('studentDepartmentFilter');
+  const levelFilter = document.getElementById('studentLevelFilter');
+
+  const applyFilters = async () => {
+    const query = searchInput?.value.trim();
+    const department = departmentFilter?.value;
+    const level = levelFilter?.value;
+    const filters = {};
+    if (query) filters.query = query;
+    if (department) filters.department = department;
+    if (level) filters.level = level;
+    const result = await studentService.getStudents(filters);
+    const filtered = result?.status === 'success' ? result.data : [];
+    currentItems = filtered;
+    currentPage = 1;
+    renderStudents(container, filtered.slice(0, 5));
+  };
+
+  if (searchInput) searchInput.addEventListener('input', applyFilters);
+  if (departmentFilter) departmentFilter.addEventListener('change', applyFilters);
+  if (levelFilter) levelFilter.addEventListener('change', applyFilters);
 }
 
 export async function initStudentsPage(container) {
