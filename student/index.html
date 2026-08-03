@@ -13,6 +13,12 @@
     <section class="form-card">
       <h1 class="page-title">تسجيل الحضور</h1>
       <div id="sessionInfo" class="session-info">جارٍ جلب بيانات الجلسة...</div>
+      <div id="studentPanel" class="student-panel" style="display:none;">
+        <div id="studentSummary" class="student-summary"></div>
+        <div id="studentSessionStatus" class="student-session-status"></div>
+        <div id="studentStats" class="student-stats"></div>
+        <button id="studentLogoutBtn" type="button" class="btn btn-secondary">تسجيل الخروج</button>
+      </div>
       <p class="page-subtitle">أدخل بيانات الطالب والإحداثيات لتسجيل الحضور.</p>
       <form id="attendance-form" class="attendance-form" novalidate>
         <div class="form-group">
@@ -59,6 +65,7 @@
     </section>
   </main>
   <div id="global-loader" class="loader">جاري التحميل...</div>
+  <script type="module" src="../assets/js/studentGuard.js"></script>
   <script type="module" src="../assets/js/app.js"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@ import { createCard, createEmptyState } from './components.js';
 
 export async function initSettingsPage(container) {
   if (!container) return;
-  const result = await settingsService.getSettings();
+  const result = await settingsService.getLocationSettings();
   const settings = result?.status === 'success' ? result.data : null;
   if (!settings) {
     container.innerHTML = '';
@@ -16,14 +16,11 @@ export async function initSettingsPage(container) {
   form.className = 'settings-form';
   form.innerHTML = `
     <div class="form-grid">
-      <label>نصف قطر GPS<input id="gpsRadius" type="number" value="${settings.defaultRadius || 300}" /></label>
-      <label>اسم الجامعة<input id="university" type="text" value="${settings.university || ''}" /></label>
-      <label>الكلية<input id="faculty" type="text" value="${settings.faculty || ''}" /></label>
-      <label>الأقسام<input id="department" type="text" value="${settings.department || ''}" /></label>
-      <label>مدة الجلسة<input id="attendanceEnd" type="text" value="${settings.attendanceEnd || ''}" /></label>
-      <label>المظهر<input id="theme" type="text" value="${settings.theme || 'light'}" /></label>
-      <label>اللغة<input id="language" type="text" value="${settings.language || 'ar'}" /></label>
-      <label>الإشعارات<input id="notifications" type="checkbox" ${settings.notifications !== false ? 'checked' : ''} /></label>
+      <label>Latitude الجامعة<input id="universityLatitude" type="number" step="any" value="${settings.university_latitude || ''}" /></label>
+      <label>Longitude الجامعة<input id="universityLongitude" type="number" step="any" value="${settings.university_longitude || ''}" /></label>
+      <label>نصف قطر GPS (متر)<input id="gpsRadius" type="number" value="${settings.gps_radius || 300}" /></label>
+      <label>سماح لأجهزة متعددة<input id="allowMultipleDevices" type="checkbox" ${settings.allow_multiple_devices ? 'checked' : ''} /></label>
+      <label>مدة الجلسة (ساعات)<input id="sessionDurationHours" type="number" value="${settings.session_duration_hours || 24}" /></label>
     </div>
     <button type="submit" class="btn btn-primary">حفظ الإعدادات</button>
   `;
@@ -37,15 +34,11 @@ export async function initSettingsPage(container) {
     event.preventDefault();
 
     const payload = {
-      defaultRadius: Number(form.querySelector('#gpsRadius').value) || 300,
-      university: form.querySelector('#university').value.trim(),
-      faculty: form.querySelector('#faculty').value.trim(),
-      department: form.querySelector('#department').value.trim(),
-      attendanceEnd: form.querySelector('#attendanceEnd').value.trim(),
-      // mockInterface removed; settings come from server
-      theme: form.querySelector('#theme').value.trim(),
-      language: form.querySelector('#language').value.trim(),
-      notifications: form.querySelector('#notifications').checked
+      university_latitude: Number(form.querySelector('#universityLatitude').value) || '',
+      university_longitude: Number(form.querySelector('#universityLongitude').value) || '',
+      gps_radius: Number(form.querySelector('#gpsRadius').value) || 300,
+      allow_multiple_devices: form.querySelector('#allowMultipleDevices').checked,
+      session_duration_hours: Number(form.querySelector('#sessionDurationHours').value) || 24
     };
 
     const saveResult = await settingsService.saveSettings(payload);

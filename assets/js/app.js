@@ -14,6 +14,7 @@ import * as reports from './modules/reports.js';
 import * as settings from './modules/settings.js';
 import * as logs from './modules/logs.js';
 import * as profile from './modules/profile.js';
+import { authService } from './services/authService.js';
 import { renderAdminPage } from './modules/adminPage.js';
 
 const pageId = router.getCurrentPage();
@@ -30,9 +31,26 @@ const setGeneratedLinks = () => {
   }
 };
 
+const requireAdminAuth = () => {
+  if (!authService.isAuthenticated()) {
+    window.location.href = 'login.html';
+    return false;
+  }
+  return true;
+};
+
+const isAdminRoute = () => {
+  const pathname = window.location.pathname || '';
+  return pathname.includes('/admin/') || pageId.startsWith('admin-') || ['students', 'sessions', 'attendance', 'reports', 'settings', 'logs', 'profile'].includes(pageId);
+};
+
 const initPage = () => {
   setGeneratedLinks();
   document.title = `${APP_CONFIG.appName} - ${document.title}`;
+
+  if (isAdminRoute() && pageId !== 'admin-login' && !requireAdminAuth()) {
+    return;
+  }
 
   switch (pageId) {
     case 'home':
@@ -41,41 +59,49 @@ const initPage = () => {
       auth.initAuthPage();
       break;
     case 'admin-dashboard': {
+      if (!requireAdminAuth()) return;
       const container = renderAdminPage('dashboard');
       dashboard.initDashboardPage(container);
       break;
     }
     case 'students': {
+      if (!requireAdminAuth()) return;
       const container = renderAdminPage('students');
       students.initStudentsPage(container);
       break;
     }
     case 'sessions': {
+      if (!requireAdminAuth()) return;
       const container = renderAdminPage('sessions');
       sessions.initSessionsPage(container);
       break;
     }
     case 'attendance': {
+      if (!requireAdminAuth()) return;
       const container = renderAdminPage('attendance');
       attendanceAdmin.initAttendancePage(container);
       break;
     }
     case 'reports': {
+      if (!requireAdminAuth()) return;
       const container = renderAdminPage('reports');
       reports.initReportsPage(container);
       break;
     }
     case 'settings': {
+      if (!requireAdminAuth()) return;
       const container = renderAdminPage('settings');
       settings.initSettingsPage(container);
       break;
     }
     case 'logs': {
+      if (!requireAdminAuth()) return;
       const container = renderAdminPage('logs');
       logs.initLogsPage(container);
       break;
     }
     case 'profile': {
+      if (!requireAdminAuth()) return;
       const container = renderAdminPage('profile');
       profile.initProfilePage(container);
       break;

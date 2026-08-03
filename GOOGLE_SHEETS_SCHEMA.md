@@ -3,6 +3,8 @@
 ## Overview
 هذا المستند يحدد هيكل أوراق Google Sheets المطلوبة لنظام Smart Attendance System، بما يتوافق مع طبقة الـ API الحالية في المشروع ومع منطق الحضور والجلسات.
 
+> يحتوي التصميم على 7 أوراق رئيسية: 6 جداول أساسية للنظام بالإضافة إلى جدول `student_sessions` لدعم جلسات الطلاب اليومية.
+
 ## Conventions
 - استخدم الصف الأول كـ header row.
 - استخدم أسماء الأعمدة بصيغة snake_case.
@@ -171,6 +173,40 @@ id,username,password_hash,password,role,email,status,last_login,created_at,updat
 - `password_hash` مطلوب ما لم يكن هناك عمود `password` صالح.
 - `password` يُقبل كبديل مؤقت أو للتوافق، لكن الأفضل استخدام `password_hash`.
 - `role` يجب أن يكون أحد: `Admin`, `Super Admin`, `Viewer`.
+
+---
+
+## Sheet 7: student_sessions
+الغرض: تخزين بيانات جلسات الطالب اليومية وحالة تسجيل الدخول.
+
+### Columns
+- `id` (String, Primary Key)
+- `student_id` (String)
+- `student_name` (String)
+- `session_token` (String, Unique)
+- `login_date` (Date)
+- `login_time` (Time)
+- `expires_at` (Datetime)
+- `latitude` (Number)
+- `longitude` (Number)
+- `radius` (Number)
+- `device_fingerprint` (String)
+- `public_ip` (String)
+- `user_agent` (String)
+- `active` (String)
+- `created_at` (Datetime)
+- `updated_at` (Datetime)
+
+### Sample header row
+```text
+id,student_id,student_name,session_token,login_date,login_time,expires_at,latitude,longitude,radius,device_fingerprint,public_ip,user_agent,active,created_at,updated_at
+```
+
+### Validation rules
+- `student_id` و`session_token` و`login_date` مطلوبة.
+- `active` يجب أن يكون `true` أو `false`.
+- `session_token` يجب أن يكون فريدًا لكل جلسة.
+- يجب منع استخدام نفس `device_fingerprint` لأكثر من طالب واحد في نفس اليوم إذا سمحت الإعدادات بمنع الأجهزة المتعددة.
 
 ---
 

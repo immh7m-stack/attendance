@@ -133,8 +133,6 @@ function handleStudentLogout(body) {
   if (!token) return createSuccess({ ok: true });
   const session = findStudentSessionByToken(token);
   if (!session) return createSuccess({ ok: true });
-  const updated = Object.assign({}, session, { active: false, updated_at: new Date().toISOString() });
-  updateRow(SHEET_CONFIG.student_sessions, session.__rowNum, updated);
   return createSuccess({ ok: true });
 }
 
@@ -173,7 +171,16 @@ function handleStudentLogin(body) {
     if (existingFingerprint !== deviceFingerprint && !allowMultipleDevices) {
       return createError('device_mismatch', 'تم تغيير الجهاز بشكل كبير، مطلوب التحقق.', { allowMultipleDevices });
     }
-    return createSuccess(existingByStudent);
+    const updatedSession = Object.assign({}, existingByStudent, {
+      device_fingerprint: deviceFingerprint,
+      public_ip: publicIp,
+      user_agent: userAgent,
+      latitude,
+      longitude,
+      updated_at: new Date().toISOString()
+    });
+    updateRow(SHEET_CONFIG.student_sessions, existingByStudent.__rowNum, updatedSession);
+    return createSuccess(updatedSession);
   }
 
   const collision = findStudentSessionByFingerprint(deviceFingerprint);
@@ -282,7 +289,7 @@ function createError(code, message, details = {}) {
   };
 }
 
-function handleLogin(body) {
+function handleAdminLogin(body) {
   const username = String(body.username || '').trim();
   const password = String(body.password || '').trim();
   if (!username || !password) return createError('validation_error', 'username and password are required');
@@ -302,6 +309,10 @@ function handleLogin(body) {
   };
   const token = generateId('token');
   return createSuccess({ token, user });
+}
+
+function handleLogin(body) {
+  return handleAdminLogin(body);
 }
 
 function sendResponse(result) {
@@ -417,7 +428,7 @@ function doGet(e) {
 
   try {
     if (route.resource === 'login') {
-      return jsonResponse(handleLogin(params), callback);
+      return jsonResponse(handleAuthLogin(params), callback);
     }
     if (route.resource === 'settings') {
       if (route.id === 'location') {

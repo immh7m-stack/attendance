@@ -2,7 +2,7 @@ import { get, post } from './apiAdapter.js';
 
 export const authService = {
   async login(credentials) {
-    return get('login', credentials);
+    return post('login', credentials);
   },
   async logout() {
     return post('logout');

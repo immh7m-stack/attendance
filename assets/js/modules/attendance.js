@@ -1,11 +1,69 @@
 import * as locationModule from './location.js';
 import * as validation from './validation.js';
 import * as notifications from './notifications.js';
-import { getQueryParam, navigateTo } from '../router.js';
+import { navigateTo } from '../router.js';
 import { attendanceService } from '../services/attendanceService.js';
-import { sessionService } from '../services/sessionService.js';
+import { settingsService } from '../services/settingsService.js';
 import { studentService } from '../services/studentService.js';
-import { setState, getState } from '../state.js';
+import { setState } from '../state.js';
+import { getDeviceFingerprint, getPublicIp } from './device.js';
+
+function renderStudentSummary(student, session, stats) {
+  const summaryParts = [];
+  if (student) {
+    summaryParts.push(`<strong>${student.name}</strong> — ${student.studentId}`);
+    summaryParts.push(`${student.department || '-'} — ${student.level || '-'}`);
+  }
+  if (session) {
+    summaryParts.push(`الجلسة: ${session.session_token || session.sessionToken || ''}`);
+    summaryParts.push(`تاريخ الدخول: ${session.login_date || ''} ${session.login_time || ''}`);
+    summaryParts.push(`تنتهي: ${session.expires_at || ''}`);
+  }
+  return summaryParts.join(' | ');
+}
+
+function renderStudentStats(stats) {
+  if (!stats) return '';
+  return `
+    <div class="stats-grid">
+      <div class="stat-box">إجمالي المحاضرات<br><strong>${stats.totalLectures || 0}</strong></div>
+      <div class="stat-box">الحضور<br><strong>${stats.present || 0}</strong></div>
+      <div class="stat-box">الغياب<br><strong>${stats.absent || 0}</strong></div>
+      <div class="stat-box">نسبة الحضور<br><strong>${stats.attendanceRate || 0}%</strong></div>
+    </div>
+  `;
+}
+
+function showStudentPanel(student, session, stats) {
+  const studentPanel = document.getElementById('studentPanel');
+  const studentSummary = document.getElementById('studentSummary');
+  const studentSessionStatus = document.getElementById('studentSessionStatus');
+  const studentStats = document.getElementById('studentStats');
+  if (!studentPanel || !studentSummary || !studentSessionStatus || !studentStats) return;
+
+  studentPanel.style.display = 'block';
+  studentSummary.innerHTML = renderStudentSummary(student, session, stats);
+  studentSessionStatus.textContent = session ? 'الحالة: جلسة فعّالة لليوم' : 'الحالة: لم تُسجَّل جلسة بعد';
+  studentStats.innerHTML = renderStudentStats(stats);
+}
+
+function hideStudentPanel() {
+  const studentPanel = document.getElementById('studentPanel');
+  if (studentPanel) studentPanel.style.display = 'none';
+}
+
+async function loadStudentSessionAndStats(studentId, studentData) {
+  if (!studentId) return null;
+  const [sessionRes, statsRes] = await Promise.all([
+    studentService.getStudentSession({ studentId }),
+    studentService.getStudentStatistics({ studentId })
+  ]);
+
+  const session = sessionRes?.status === 'success' ? sessionRes.data : null;
+  const stats = statsRes?.status === 'success' ? statsRes.data : null;
+  showStudentPanel(studentData, session, stats);
+  return session;
+}
 
 export function generateAttendanceObject(student, session, location) {
   const now = new Date();
@@ -15,8 +73,8 @@ export function generateAttendanceObject(student, session, location) {
     studentName: student.name,
     department: student.department,
     level: student.level,
-    subject: session?.subjectName || session?.subject || '',
-    sessionId: session?.sessionId || null,
+    sessionId: session?.sessionToken || session?.session_token || session?.sessionId || null,
+    sessionToken: session?.sessionToken || session?.session_token || null,
     latitude: location.latitude,
     longitude: location.longitude,
     distance: location.distance,
@@ -40,35 +98,26 @@ export function showError() { navigateTo('error.html'); }
 
 export async function initStudentPage() {
   const form = document.querySelector('#attendance-form');
+  const sessionInfoContainer = document.getElementById('sessionInfo');
+  const studentPanel = document.getElementById('studentPanel');
+  const studentSummary = document.getElementById('studentSummary');
+  const studentSessionStatus = document.getElementById('studentSessionStatus');
+  const studentStats = document.getElementById('studentStats');
+  const logoutBtn = document.getElementById('studentLogoutBtn');
+
   if (!form) return;
 
-  // Load active session and render summary in the Student Home Screen
-  try {
-    notifications.loading(true, 'جاري جلب بيانات الجلسة...');
-    const res = await sessionService.getActiveSession();
-    const container = document.getElementById('sessionInfo');
-    if (res && res.status === 'success' && container) {
-      const s = res.data;
-      // store active session in state for later validation
-      setState('activeSession', s);
-      const sessionLat = s.location?.latitude || s.latitude || '';
-      const sessionLng = s.location?.longitude || s.longitude || '';
-      container.innerHTML = `<div class="session-card"><strong>${s.subjectName || s.subject || 'جلسة'}</strong> — ${s.date} ${s.start || ''} - ${s.end || ''}<br>القاعة: ${s.room || '-'} — نصف القطر: ${s.location?.radius || s.radius || 300} متر${sessionLat && sessionLng ? `<br>الموقع: ${sessionLat}, ${sessionLng}` : ''}</div>`;
-    } else if (container) {
-      container.textContent = 'لا توجد جلسة مفتوحة حالياً.';
-    }
-  } catch (e) {
-    const container = document.getElementById('sessionInfo');
-    if (container) container.textContent = 'فشل جلب بيانات الجلسة.';
-  } finally {
-    notifications.loading(false);
+  if (sessionInfoContainer) {
+    sessionInfoContainer.textContent = 'أدخل بياناتك ثم اضغط تسجيل الحضور.';
   }
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     setState('attendance', { validationErrors: [] });
+    notifications.loading(true, 'جاري معالجة طلب الحضور...');
 
     if (!navigator.onLine) {
+      notifications.loading(false);
       showOffline();
       return;
     }
@@ -85,30 +134,14 @@ export async function initStudentPage() {
     const useManualLocation = !Number.isNaN(manualLatitude) && !Number.isNaN(manualLongitude);
 
     if (!validation.validateAttendance(student)) {
+      notifications.loading(false);
       setState('attendance', { validationErrors: ['يرجى إكمال جميع الحقول بشكل صحيح.'] });
       notifications.error('يرجى إكمال جميع الحقول بشكل صحيح.');
       return;
     }
 
-    const active = getState('activeSession') || null;
-    const session = {
-      sessionId: getQueryParam('sessionId') || (active && (active.id || active.sessionId)) || null,
-      subject: getQueryParam('subject') || (active && (active.subjectName || active.subject)) || '',
-      latitude: parseFloat(getQueryParam('lat') || (active && (active.location?.latitude || active.latitude)) || '0'),
-      longitude: parseFloat(getQueryParam('lng') || (active && (active.location?.longitude || active.longitude)) || '0'),
-      radius: parseInt(getQueryParam('radius') || (active && (active.location?.radius || active.radius)) || '300', 10),
-    };
-
-    if (!session.sessionId) {
-      showDenied();
-      return;
-    }
-
-    // Duplicate checks are performed on the server side by Google Apps Script.
-
+    let currentLocation;
     try {
-      notifications.loading(true, 'جاري إرسال بيانات الحضور...');
-      let currentLocation;
       if (useManualLocation) {
         currentLocation = { latitude: manualLatitude, longitude: manualLongitude, accuracy: 0 };
         locationModule.showLocationStatus('تم استخدام الإحداثيات اليدوية.', true);
@@ -116,48 +149,137 @@ export async function initStudentPage() {
         currentLocation = await locationModule.getCurrentLocation();
         locationModule.showLocationStatus('تم التحقق من الموقع.', true);
       }
-      const locationResult = locationModule.isInsideRadius(currentLocation, { latitude: session.latitude, longitude: session.longitude }, session.radius);
-      if (!locationResult.inside) {
-        notifications.loading(false);
-        locationModule.showLocationStatus('أنت خارج نطاق الحضور.', false);
-        showDenied();
-        return;
-      }
-
-      const attendanceLocation = {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        distance: locationResult.distance
-      };
-      const attendanceData = generateAttendanceObject(student, session, attendanceLocation);
-      const apiResult = await submitAttendance(attendanceData);
-      if (apiResult.status === 'success') {
-        setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
-        notifications.loading(false);
-        showSuccess();
-      } else {
-        notifications.loading(false);
-        // handle server-side duplicate attendance or other errors
-        if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
-          showDuplicate();
-          return;
-        }
-        notifications.error(apiResult.error?.message || 'فشل إرسال بيانات الحضور. حاول مرة أخرى.');
-      }
     } catch (error) {
       notifications.loading(false);
       showError();
+      return;
+    }
+
+    const locationSettingsResult = await settingsService.getLocationSettings();
+    const locationSettings = locationSettingsResult?.status === 'success' ? locationSettingsResult.data : null;
+
+    if (!locationSettings) {
+      notifications.loading(false);
+      notifications.error('تعذر تحميل إعدادات الموقع. تواصل مع الإدارة.');
+      showError();
+      return;
+    }
+
+    const universityLatitude = Number(locationSettings.university_latitude || locationSettings.latitude || 0);
+    const universityLongitude = Number(locationSettings.university_longitude || locationSettings.longitude || 0);
+    const gpsRadius = Number(locationSettings.gps_radius || locationSettings.radius || 300);
+
+    if (!Number.isFinite(universityLatitude) || !Number.isFinite(universityLongitude) || universityLatitude === 0 || universityLongitude === 0) {
+      notifications.loading(false);
+      notifications.error('إعدادات موقع الجامعة غير مكتملة. تواصل مع الإدارة.');
+      showError();
+      return;
+    }
+
+    const radiusCheck = locationModule.isInsideRadius(
+      currentLocation,
+      {
+        latitude: universityLatitude,
+        longitude: universityLongitude
+      },
+      gpsRadius
+    );
+
+    if (!radiusCheck.inside) {
+      notifications.loading(false);
+      locationModule.showLocationStatus(`أنت خارج نطاق الجامعة. المسافة ${Math.round(radiusCheck.distance)} متر.`, false);
+      showDenied();
+      return;
+    }
+
+    const fingerprint = getDeviceFingerprint();
+    const publicIp = await getPublicIp();
+
+    const loginPayload = {
+      studentId: student.studentId,
+      name: student.name,
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      deviceFingerprint: fingerprint,
+      publicIp,
+      userAgent: navigator.userAgent
+    };
+
+    const loginResult = await studentService.loginStudent(loginPayload);
+    if (loginResult?.status !== 'success') {
+      notifications.loading(false);
+      const errorCode = loginResult?.error?.code;
+      if (errorCode === 'out_of_range') {
+        locationModule.showLocationStatus('أنت خارج نطاق الجامعة.', false);
+        showDenied();
+        return;
+      }
+      if (errorCode === 'device_in_use') {
+        notifications.error(loginResult.error.message || 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+        return;
+      }
+      if (errorCode === 'device_mismatch') {
+        notifications.error(loginResult.error.message || 'تم تغيير الجهاز، مطلوب التحقق.');
+        return;
+      }
+      notifications.error(loginResult?.error?.message || 'تعذر تسجيل الدخول. حاول مرة أخرى.');
+      return;
+    }
+
+    const studentSession = loginResult.data;
+    setState('studentSession', studentSession);
+    localStorage.setItem('student_session_token', studentSession.session_token || studentSession.sessionToken || '');
+
+    const attendanceLocation = {
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      distance: Math.round(radiusCheck.distance)
+    };
+
+    const attendanceData = generateAttendanceObject(student, studentSession, attendanceLocation);
+    const apiResult = await submitAttendance(attendanceData);
+    notifications.loading(false);
+
+    if (apiResult.status === 'success') {
+      setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
+      showSuccess();
+    } else {
+      if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
+        showDuplicate();
+        return;
+      }
+      notifications.error(apiResult.error?.message || 'فشل إرسال بيانات الحضور. حاول مرة أخرى.');
     }
   });
 
-  // Student lookup (Mock) — render basic info in the student card
   const studentIdInput = document.querySelector('#studentId');
   const studentCard = document.getElementById('studentCard');
+  const savedToken = localStorage.getItem('student_session_token');
+  if (savedToken) {
+    const sessionRes = await studentService.getStudentSession({ sessionToken: savedToken });
+    if (sessionRes?.status === 'success') {
+      const sessionData = sessionRes.data;
+      const studentRes = await studentService.getStudent(sessionData.student_id);
+      if (studentRes?.status === 'success') {
+        const student = studentRes.data;
+        if (studentIdInput) studentIdInput.value = student.studentId || studentIdInput.value;
+        const nameInput = document.querySelector('#studentName');
+        const departmentInput = document.querySelector('#department');
+        const levelInput = document.querySelector('#level');
+        if (nameInput) nameInput.value = student.name || '';
+        if (departmentInput) departmentInput.value = student.department || '';
+        if (levelInput) levelInput.value = student.level || '';
+        await loadStudentSessionAndStats(student.studentId, student);
+      }
+    }
+  }
+
   if (studentIdInput) {
     studentIdInput.addEventListener('blur', async () => {
       const sid = studentIdInput.value.trim();
       if (!sid) {
         if (studentCard) studentCard.innerHTML = '';
+        hideStudentPanel();
         return;
       }
       try {
@@ -168,7 +290,7 @@ export async function initStudentPage() {
           studentCard.innerHTML = `<div class="student-info"><strong>${st.name}</strong> — ${st.studentId}<br>${st.department || '-'} — ${st.level || '-'}<br><button id="useStudentBtn" class="btn btn-secondary">استخدام هذه البيانات</button></div>`;
           const useBtn = document.getElementById('useStudentBtn');
           if (useBtn) {
-            useBtn.addEventListener('click', (ev) => {
+            useBtn.addEventListener('click', async (ev) => {
               ev.preventDefault();
               const nameInput = document.querySelector('#studentName');
               const departmentInput = document.querySelector('#department');
@@ -176,16 +298,37 @@ export async function initStudentPage() {
               if (nameInput) nameInput.value = st.name || '';
               if (departmentInput) departmentInput.value = st.department || '';
               if (levelInput) levelInput.value = st.level || '';
+              await loadStudentSessionAndStats(st.studentId, st);
             });
           }
+          await loadStudentSessionAndStats(st.studentId, st);
         } else if (studentCard) {
           studentCard.innerHTML = `<div class="student-info error">لم يتم العثور على الطالب.</div>`;
+          hideStudentPanel();
         }
       } catch (e) {
         if (studentCard) studentCard.innerHTML = `<div class="student-info error">خطأ أثناء البحث.</div>`;
+        hideStudentPanel();
       } finally {
         notifications.loading(false);
       }
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const token = localStorage.getItem('student_session_token');
+      if (token) {
+        try {
+          await studentService.logoutStudent({ sessionToken: token });
+        } catch (error) {
+          console.warn('Student logout API failed:', error);
+        }
+      }
+      localStorage.removeItem('student_session_token');
+      hideStudentPanel();
+      window.location.reload();
     });
   }
 }

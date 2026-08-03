@@ -18,5 +18,23 @@ export const studentService = {
   },
   async searchStudents(query) {
     return get('students', { query });
+  },
+  async loginStudent(payload) {
+    return post('login', payload);
+  },
+  async getStudentSession(params = {}) {
+    return get('student/session', params);
+  },
+  async getStudentProfile(params = {}) {
+    return get('student/profile', params);
+  },
+  async getStudentAttendance(params = {}) {
+    return get('student/attendance', params);
+  },
+  async getStudentStatistics(params = {}) {
+    return get('student/statistics', params);
+  },
+  async logoutStudent(payload = {}) {
+    return post('logout', payload);
   }
 };
