@@ -124,7 +124,12 @@ export async function initStudentPage() {
         return;
       }
 
-      const attendanceData = generateAttendanceObject(student, session, locationResult);
+      const attendanceLocation = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        distance: locationResult.distance
+      };
+      const attendanceData = generateAttendanceObject(student, session, attendanceLocation);
       const apiResult = await submitAttendance(attendanceData);
       if (apiResult.status === 'success') {
         setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
