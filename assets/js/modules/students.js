@@ -20,7 +20,7 @@ function renderStudents(container, items) {
   card.querySelector('.card-body').appendChild(toolbar);
 
   if (!items.length) {
-    card.querySelector('.card-body').appendChild(createEmptyState('لا يوجد طلاب', 'لا توجد بيانات Mock للطلاب في هذا الوقت.'));
+    card.querySelector('.card-body').appendChild(createEmptyState('لا يوجد طلاب', 'لا توجد بيانات للطلاب في هذا الوقت.'));
   } else {
     card.querySelector('.card-body').appendChild(createTable(['Student ID', 'الاسم', 'الكلية', 'القسم', 'المستوى', 'الحالة'], buildRows(items)));
     card.querySelector('.card-body').appendChild(createPagination(currentPage, Math.max(1, Math.ceil(currentItems.length / 5)), (page) => {

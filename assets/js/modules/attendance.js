@@ -1,14 +1,11 @@
 import * as locationModule from './location.js';
 import * as validation from './validation.js';
 import * as notifications from './notifications.js';
-import * as storage from './storage.js';
 import { getQueryParam, navigateTo } from '../router.js';
 import { attendanceService } from '../services/attendanceService.js';
 import { sessionService } from '../services/sessionService.js';
 import { studentService } from '../services/studentService.js';
 import { setState, getState } from '../state.js';
-
-const ATTENDANCE_KEY = 'attendance_records';
 
 export function generateAttendanceObject(student, session, location) {
   const now = new Date();
@@ -29,11 +26,6 @@ export function generateAttendanceObject(student, session, location) {
     device: navigator.platform,
     browser: navigator.userAgent,
   };
-}
-
-export function checkDuplicate(studentId, sessionId) {
-  const records = storage.loadData(ATTENDANCE_KEY) || [];
-  return records.some((record) => record.studentId === studentId && record.sessionId === sessionId && record.date === new Date().toISOString().split('T')[0]);
 }
 
 export async function submitAttendance(attendanceData) {
@@ -106,10 +98,7 @@ export async function initStudentPage() {
       return;
     }
 
-    if (checkDuplicate(student.studentId, session.sessionId)) {
-      showDuplicate();
-      return;
-    }
+    // Duplicate checks are performed on the server side by Google Apps Script.
 
     try {
       notifications.loading(true, 'جاري إرسال بيانات الحضور...');
@@ -126,14 +115,16 @@ export async function initStudentPage() {
       const attendanceData = generateAttendanceObject(student, session, locationResult);
       const apiResult = await submitAttendance(attendanceData);
       if (apiResult.status === 'success') {
-        const records = storage.loadData(ATTENDANCE_KEY) || [];
-        records.push(attendanceData);
-        storage.saveData(ATTENDANCE_KEY, records);
         setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
         notifications.loading(false);
         showSuccess();
       } else {
         notifications.loading(false);
+        // handle server-side duplicate attendance or other errors
+        if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
+          showDuplicate();
+          return;
+        }
         notifications.error(apiResult.error?.message || 'فشل إرسال بيانات الحضور. حاول مرة أخرى.');
       }
     } catch (error) {

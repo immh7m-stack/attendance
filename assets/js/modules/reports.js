@@ -7,7 +7,7 @@ export async function initReportsPage(container) {
   const reports = result?.status === 'success' ? result.data : [];
   if (!reports.length) {
     container.innerHTML = '';
-    container.appendChild(createEmptyState('لا توجد تقارير', 'لا توجد تقارير Mock متاحة حاليًا.'));
+    container.appendChild(createEmptyState('لا توجد تقارير', 'لا توجد تقارير متاحة حاليًا.'));
     return;
   }
 

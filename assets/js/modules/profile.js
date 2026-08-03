@@ -30,7 +30,7 @@ export async function initProfilePage(container) {
         return;
       }
       passwordInput.value = '';
-      success('تم تغيير كلمة المرور مؤقتًا في وضع Mock.');
+      success('تم تغيير كلمة المرور مؤقتًا.');
     });
   }
 }

@@ -1,5 +1,0 @@
-[
-  { "id": "st-001", "studentId": "202101234", "name": "أحمد علي", "department": "علوم الحاسوب", "faculty": "الهندسة", "level": "Level 1", "phone": "+201000000001", "email": "ahmed@example.com", "status": "active" },
-  { "id": "st-002", "studentId": "202101235", "name": "سارة محمود", "department": "تقنية المعلومات", "faculty": "الهندسة", "level": "Level 2", "phone": "+201000000002", "email": "sara@example.com", "status": "active" },
-  { "id": "st-003", "studentId": "202101236", "name": "يوسف كريم", "department": "علوم الحاسوب", "faculty": "الهندسة", "level": "Level 3", "phone": "+201000000003", "email": "youssef@example.com", "status": "inactive" }
-]

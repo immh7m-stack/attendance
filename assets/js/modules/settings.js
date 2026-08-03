@@ -21,7 +21,6 @@ export async function initSettingsPage(container) {
       <label>الكلية<input id="faculty" type="text" value="${settings.faculty || ''}" /></label>
       <label>الأقسام<input id="department" type="text" value="${settings.department || ''}" /></label>
       <label>مدة الجلسة<input id="attendanceEnd" type="text" value="${settings.attendanceEnd || ''}" /></label>
-      <label>واجهة Mock<input id="mockInterface" type="checkbox" ${settings.mockInterface !== false ? 'checked' : ''} /></label>
       <label>المظهر<input id="theme" type="text" value="${settings.theme || 'light'}" /></label>
       <label>اللغة<input id="language" type="text" value="${settings.language || 'ar'}" /></label>
       <label>الإشعارات<input id="notifications" type="checkbox" ${settings.notifications !== false ? 'checked' : ''} /></label>
@@ -43,7 +42,7 @@ export async function initSettingsPage(container) {
       faculty: form.querySelector('#faculty').value.trim(),
       department: form.querySelector('#department').value.trim(),
       attendanceEnd: form.querySelector('#attendanceEnd').value.trim(),
-      mockInterface: form.querySelector('#mockInterface').checked,
+      // mockInterface removed; settings come from server
       theme: form.querySelector('#theme').value.trim(),
       language: form.querySelector('#language').value.trim(),
       notifications: form.querySelector('#notifications').checked

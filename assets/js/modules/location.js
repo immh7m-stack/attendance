@@ -29,19 +29,6 @@ export function isInsideRadius(current, target, radius = APP_CONFIG.gpsRadiusMet
 }
 
 export async function getCurrentLocation() {
-  // Mock GPS path for Sprint 1 when enabled in config
-  if (APP_CONFIG.mockGps) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          latitude: APP_CONFIG.mockLocation.latitude,
-          longitude: APP_CONFIG.mockLocation.longitude,
-          accuracy: APP_CONFIG.mockLocation.accuracy || 50,
-        });
-      }, 300);
-    });
-  }
-
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported by this browser.'));
@@ -56,7 +43,21 @@ export async function getCurrentLocation() {
           accuracy: position.coords.accuracy,
         });
       },
-      (error) => reject(error),
+      (error) => {
+        // If permission denied, redirect to denied page
+        if (error && error.code === error.PERMISSION_DENIED) {
+          const path = window.location.pathname || '';
+          if (path.includes('/student/')) {
+            window.location.href = 'denied.html';
+          } else if (path.includes('/admin/')) {
+            window.location.href = '../student/denied.html';
+          } else {
+            window.location.href = 'student/denied.html';
+          }
+          return reject(new Error('Geolocation permission denied'));
+        }
+        reject(error);
+      },
       { enableHighAccuracy: true, timeout: APP_CONFIG.timeoutMs, maximumAge: 0 }
     );
   });

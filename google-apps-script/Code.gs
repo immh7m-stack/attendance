@@ -8,9 +8,10 @@ const SHEET_CONFIG = {
 };
 
 const SCRIPT_PROPERTY_SPREADSHEET_ID = 'SPREADSHEET_ID';
+const DEFAULT_SPREADSHEET_ID = '1yqhDccY21PtHKJdO3c9EXXsnRt6dlomMlWZ3WvBEpzo';
 
 function getSpreadsheet() {
-  const spreadsheetId = PropertiesService.getScriptProperties().getProperty(SCRIPT_PROPERTY_SPREADSHEET_ID);
+  const spreadsheetId = PropertiesService.getScriptProperties().getProperty(SCRIPT_PROPERTY_SPREADSHEET_ID) || DEFAULT_SPREADSHEET_ID;
   if (!spreadsheetId) {
     throw new Error('SPREADSHEET_ID is not configured');
   }
@@ -78,6 +79,19 @@ function createError(code, message, details = {}) {
     status: 'error',
     error: { code, message, details }
   };
+}
+
+function handleLogin(body) {
+  const username = String(body.username || '').trim();
+  const password = String(body.password || '').trim();
+  if (!username || !password) return createError('validation_error', 'username and password are required');
+  const admins = getEntityRows(SHEET_CONFIG.admins, {});
+  const admin = admins.find((a) => String(getRowValue(a, 'username')) === username && String(getRowValue(a, 'password')) === password);
+  if (!admin) return createError('invalid_credentials', 'بيانات الدخول غير صحيحة');
+  const user = { id: getRowValue(admin, 'id') || getRowValue(admin, 'username'), username: getRowValue(admin, 'username'), role: getRowValue(admin, 'role') || 'Admin' };
+  // generate a simple token
+  const token = generateId('token');
+  return createSuccess({ token, user });
 }
 
 function sendResponse(result) {
@@ -312,7 +326,7 @@ function doPost(e) {
 
   try {
     if (route.resource === 'login') {
-      return jsonResponse(createSuccess({ token: 'mock-token', user: { id: 'admin-1', username: 'admin', role: 'Admin' } }));
+      return jsonResponse(handleLogin(body));
     }
     if (route.resource === 'logout') {
       return jsonResponse(createSuccess({ ok: true }));

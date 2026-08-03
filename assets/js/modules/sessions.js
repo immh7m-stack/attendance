@@ -16,7 +16,7 @@ function renderSessions(container, items) {
   card.querySelector('.card-body').appendChild(toolbar);
 
   if (!items.length) {
-    card.querySelector('.card-body').appendChild(createEmptyState('لا توجد جلسات', 'لا توجد جلسات Mock متاحة حاليًا.'));
+    card.querySelector('.card-body').appendChild(createEmptyState('لا توجد جلسات', 'لا توجد جلسات متاحة حاليًا.'));
   } else {
     card.querySelector('.card-body').appendChild(createTable(['اسم الجلسة', 'المادة', 'التاريخ', 'البداية', 'النهاية', 'GPS Radius', 'الحالة'], buildRows(items)));
     card.querySelector('.card-body').appendChild(createPagination(currentPage, Math.max(1, Math.ceil(currentItems.length / 5)), (page) => {

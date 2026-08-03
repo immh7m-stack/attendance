@@ -1,10 +1,5 @@
 import { createCard, createSearchBox, createTable, createPagination, createEmptyState } from './components.js';
-
-const sampleLogs = [
-  { date: '2026-08-01', action: 'تسجيل دخول', user: 'admin', result: 'نجاح', description: 'تسجيل دخول المشرف' },
-  { date: '2026-08-01', action: 'إضافة طالب', user: 'admin', result: 'نجاح', description: 'تمت إضافة طالب جديد' },
-  { date: '2026-08-02', action: 'تحديث جلسة', user: 'admin', result: 'نجاح', description: 'تم تحديث الجلسة' }
-];
+import { get } from '../services/apiAdapter.js';
 
 function buildRows(items) {
   return items.map((item) => [item.date, item.action, item.user, item.result, item.description]);
@@ -17,8 +12,20 @@ export async function initLogsPage(container) {
   toolbar.className = 'toolbar';
   toolbar.appendChild(createSearchBox('بحث في السجلات...', '', 'logs-search'));
   card.querySelector('.card-body').appendChild(toolbar);
-  card.querySelector('.card-body').appendChild(createTable(['التاريخ', 'الإجراء', 'المستخدم', 'النتيجة', 'الوصف'], buildRows(sampleLogs)));
-  card.querySelector('.card-body').appendChild(createPagination(1, 1, () => {}));
+
+  try {
+    const res = await get('logs');
+    const items = res?.status === 'success' ? res.data : [];
+    if (!items || !items.length) {
+      card.querySelector('.card-body').appendChild(createEmptyState('لا توجد سجلات', 'لاتوجد سجلات حالياً.'));
+    } else {
+      card.querySelector('.card-body').appendChild(createTable(['التاريخ', 'الإجراء', 'المستخدم', 'النتيجة', 'الوصف'], buildRows(items)));
+      card.querySelector('.card-body').appendChild(createPagination(1, Math.max(1, Math.ceil(items.length / 25)), () => {}));
+    }
+  } catch (e) {
+    card.querySelector('.card-body').appendChild(createEmptyState('تعذر جلب السجلات', 'حدث خطأ أثناء جلب السجلات.'));
+  }
+
   container.innerHTML = '';
   container.appendChild(card);
 }

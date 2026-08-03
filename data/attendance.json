@@ -1,5 +1,0 @@
-[
-  { "id": "att-001", "studentId": "202101234", "sessionId": "session-001", "date": "2026-08-01", "time": "09:12:05", "status": "present", "distance": 42, "device": "Windows", "browser": "Chrome" },
-  { "id": "att-002", "studentId": "202101235", "sessionId": "session-001", "date": "2026-08-01", "time": "09:14:00", "status": "present", "distance": 55, "device": "Android", "browser": "Chrome" },
-  { "id": "att-003", "studentId": "202101236", "sessionId": "session-001", "date": "2026-08-01", "time": "09:20:00", "status": "absent", "distance": 600, "device": "iPhone", "browser": "Safari" }
-]

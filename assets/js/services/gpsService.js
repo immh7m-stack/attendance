@@ -1,9 +1,22 @@
 export const gpsService = {
   async requestPermission() {
-    return true;
+    if (!navigator.permissions) return true;
+    try {
+      const status = await navigator.permissions.query({ name: 'geolocation' });
+      return status.state !== 'denied';
+    } catch (e) {
+      return true;
+    }
   },
   async getCurrentLocation() {
-    return { latitude: 30.0444, longitude: 31.2357, accuracy: 20 };
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+        (err) => reject(err),
+        { enableHighAccuracy: true }
+      );
+    });
   },
   calculateDistance(coordA, coordB) {
     const toRad = (deg) => deg * (Math.PI / 180);

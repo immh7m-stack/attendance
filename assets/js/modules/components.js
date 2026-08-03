@@ -11,7 +11,7 @@ export function createNavbar(title = 'Smart Attendance') {
   const nav = createElement('nav', 'app-nav');
   nav.innerHTML = `
     <div class="brand">${title}</div>
-    <div class="badge">Mock UI - Sprint 2</div>
+    <div class="badge"></div>
   `;
   return nav;
 }
