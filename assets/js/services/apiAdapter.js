@@ -1,9 +1,10 @@
 import { APP_CONFIG } from '../config.js';
 import { mockApiProvider } from './providers/mockApiProvider.js';
+import { googleApiProvider } from './providers/googleApiProvider.js';
 
 const providers = {
   mock: mockApiProvider,
-  google: null,
+  google: googleApiProvider,
   future: null
 };
 

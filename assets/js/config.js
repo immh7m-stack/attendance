@@ -9,9 +9,9 @@ const buildGitHubPagesUrl = (githubUser, githubRepo, path = '') => {
 export const APP_CONFIG = {
   appName: 'Smart Attendance System',
   version: '1.0.0',
-  apiProvider: 'mock',
-  apiUrl: 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec',
-  googleScriptUrl: 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec',
+  apiProvider: 'google',
+  apiUrl: 'https://script.google.com/macros/s/AKfycbyXi901TmVFaLgs0X6dYC3_Qk-fSYqmYU4ox3DIorplImwLQsb10vyuqVAFk5CRyqjH/exec',
+  googleScriptUrl: 'https://script.google.com/macros/s/AKfycbyXi901TmVFaLgs0X6dYC3_Qk-fSYqmYU4ox3DIorplImwLQsb10vyuqVAFk5CRyqjH/exec',
   googleSheetUrl: 'https://docs.google.com/spreadsheets/d/1yqhDccY21PtHKJdO3c9EXXsnRt6dlomMlWZ3WvBEpzo/edit?usp=sharing',
   gpsRadiusMeters: 300,
   timeoutMs: 15000,
