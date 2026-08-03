@@ -17,7 +17,12 @@ export const APP_CONFIG = {
   defaultSession: null,
   githubUser: 'immh7m-stack',
   githubRepo: 'attendance',
+  // Determine whether to use GitHub Pages URLs or local relative paths
   siteUrl: buildGitHubPagesUrl('immh7m-stack', 'attendance'),
-  studentUrl: buildGitHubPagesUrl('immh7m-stack', 'attendance', 'student/'),
-  adminUrl: buildGitHubPagesUrl('immh7m-stack', 'attendance', 'admin/')
+  studentUrl: (typeof location !== 'undefined' && String(location.hostname || '').endsWith('github.io'))
+    ? buildGitHubPagesUrl('immh7m-stack', 'attendance', 'student/')
+    : 'student/index.html',
+  adminUrl: (typeof location !== 'undefined' && String(location.hostname || '').endsWith('github.io'))
+    ? buildGitHubPagesUrl('immh7m-stack', 'attendance', 'admin/')
+    : 'admin/login.html'
 };

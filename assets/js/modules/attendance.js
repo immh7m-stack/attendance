@@ -90,11 +90,11 @@ export async function submitAttendance(attendanceData) {
   return attendanceService.submitAttendance(attendanceData);
 }
 
-export function showSuccess() { navigateTo('success.html'); }
-export function showDenied() { navigateTo('denied.html'); }
-export function showDuplicate() { navigateTo('duplicate.html'); }
-export function showOffline() { navigateTo('offline.html'); }
-export function showError() { navigateTo('error.html'); }
+export function showSuccess() { navigateTo('dashboard.html'); }
+export function showDenied(message = 'أنت خارج نطاق الجامعة.') { notifications.error(message); }
+export function showDuplicate(message = 'تم تسجيل الحضور مسبقًا لهذا اليوم.') { notifications.error(message); }
+export function showOffline(message = 'لا يوجد اتصال بالإنترنت. تحقق من الاتصال وحاول مرة أخرى.') { notifications.error(message); }
+export function showError(message = 'حدث خطأ. حاول مرة أخرى لاحقًا.') { notifications.error(message); }
 
 export async function initStudentPage() {
   const form = document.querySelector('#attendance-form');
@@ -104,11 +104,68 @@ export async function initStudentPage() {
   const studentSessionStatus = document.getElementById('studentSessionStatus');
   const studentStats = document.getElementById('studentStats');
   const logoutBtn = document.getElementById('studentLogoutBtn');
+  const departmentSelect = document.querySelector('#department');
+  const levelSelect = document.querySelector('#level');
+  const studentIdInput = document.querySelector('#studentId');
+  const studentCard = document.getElementById('studentCard');
 
   if (!form) return;
 
   if (sessionInfoContainer) {
-    sessionInfoContainer.textContent = 'أدخل بياناتك ثم اضغط تسجيل الحضور.';
+    sessionInfoContainer.textContent = 'تحميل خيارات التسجيل...';
+  }
+
+  async function loadDropdownOptions() {
+    const locationSettingsResult = await settingsService.getLocationSettings();
+    const locationSettings = locationSettingsResult?.status === 'success' ? locationSettingsResult.data : null;
+    const departments = Array.isArray(locationSettings?.departments) ? locationSettings.departments : [];
+    const levels = Array.isArray(locationSettings?.levels) ? locationSettings.levels : [];
+
+    if (departmentSelect) {
+      departmentSelect.innerHTML = '<option value="">اختر القسم</option>' + departments.map((dept) => `<option value="${dept}">${dept}</option>`).join('');
+    }
+    if (levelSelect) {
+      levelSelect.innerHTML = '<option value="">اختر المستوى</option>' + levels.map((level) => `<option value="${level}">${level}</option>`).join('');
+    }
+
+    if (sessionInfoContainer) {
+      sessionInfoContainer.textContent = 'أدخل بياناتك ثم اضغط تسجيل الحضور.';
+    }
+  }
+
+  async function restoreSessionFromStudentId(studentId) {
+    const sessionResponse = await studentService.getStudentSession({ studentId });
+    if (sessionResponse?.status === 'success' && sessionResponse.data) {
+      const session = sessionResponse.data;
+      localStorage.setItem('student_session_token', session.session_token || session.sessionToken || '');
+      const studentRes = await studentService.getStudent(session.student_id);
+      if (studentRes?.status === 'success') {
+        const student = studentRes.data;
+        if (studentIdInput) studentIdInput.value = student.studentId || studentIdInput.value;
+        const nameInput = document.querySelector('#studentName');
+        const departmentInput = document.querySelector('#department');
+        const levelInput = document.querySelector('#level');
+        if (nameInput) nameInput.value = student.name || '';
+        if (departmentInput) departmentInput.value = student.department || '';
+        if (levelInput) levelInput.value = student.level || '';
+        await loadStudentSessionAndStats(student.studentId, student);
+      }
+      return session;
+    }
+    return null;
+  }
+
+  async function initializeStudentForm() {
+    await loadDropdownOptions();
+
+    const savedToken = localStorage.getItem('student_session_token');
+    if (savedToken) {
+      const sessionRes = await studentService.getStudentSession({ sessionToken: savedToken });
+      if (sessionRes?.status === 'success') {
+        const sessionData = sessionRes.data;
+        await restoreSessionFromStudentId(sessionData.student_id);
+      }
+    }
   }
 
   form.addEventListener('submit', async (event) => {
@@ -129,10 +186,6 @@ export async function initStudentPage() {
       level: document.querySelector('#level').value,
     };
 
-    const manualLatitude = parseFloat(document.querySelector('#latitude')?.value.trim() || '');
-    const manualLongitude = parseFloat(document.querySelector('#longitude')?.value.trim() || '');
-    const useManualLocation = !Number.isNaN(manualLatitude) && !Number.isNaN(manualLongitude);
-
     if (!validation.validateAttendance(student)) {
       notifications.loading(false);
       setState('attendance', { validationErrors: ['يرجى إكمال جميع الحقول بشكل صحيح.'] });
@@ -142,13 +195,8 @@ export async function initStudentPage() {
 
     let currentLocation;
     try {
-      if (useManualLocation) {
-        currentLocation = { latitude: manualLatitude, longitude: manualLongitude, accuracy: 0 };
-        locationModule.showLocationStatus('تم استخدام الإحداثيات اليدوية.', true);
-      } else {
-        currentLocation = await locationModule.getCurrentLocation();
-        locationModule.showLocationStatus('تم التحقق من الموقع.', true);
-      }
+      currentLocation = await locationModule.getCurrentLocation();
+      locationModule.showLocationStatus('تم التحقق من الموقع.', true);
     } catch (error) {
       notifications.loading(false);
       showError();
@@ -252,27 +300,7 @@ export async function initStudentPage() {
     }
   });
 
-  const studentIdInput = document.querySelector('#studentId');
-  const studentCard = document.getElementById('studentCard');
-  const savedToken = localStorage.getItem('student_session_token');
-  if (savedToken) {
-    const sessionRes = await studentService.getStudentSession({ sessionToken: savedToken });
-    if (sessionRes?.status === 'success') {
-      const sessionData = sessionRes.data;
-      const studentRes = await studentService.getStudent(sessionData.student_id);
-      if (studentRes?.status === 'success') {
-        const student = studentRes.data;
-        if (studentIdInput) studentIdInput.value = student.studentId || studentIdInput.value;
-        const nameInput = document.querySelector('#studentName');
-        const departmentInput = document.querySelector('#department');
-        const levelInput = document.querySelector('#level');
-        if (nameInput) nameInput.value = student.name || '';
-        if (departmentInput) departmentInput.value = student.department || '';
-        if (levelInput) levelInput.value = student.level || '';
-        await loadStudentSessionAndStats(student.studentId, student);
-      }
-    }
-  }
+  await initializeStudentForm();
 
   if (studentIdInput) {
     studentIdInput.addEventListener('blur', async () => {

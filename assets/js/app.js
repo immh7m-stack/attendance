@@ -1,7 +1,6 @@
 import { APP_CONFIG } from './config.js';
 import * as router from './router.js';
 import * as notifications from './modules/notifications.js';
-import * as storage from './modules/storage.js';
 import * as validation from './modules/validation.js';
 import * as locationModule from './modules/location.js';
 import * as attendance from './modules/attendance.js';
@@ -14,6 +13,7 @@ import * as reports from './modules/reports.js';
 import * as settings from './modules/settings.js';
 import * as logs from './modules/logs.js';
 import * as profile from './modules/profile.js';
+import * as studentDashboard from './modules/studentDashboard.js';
 import { authService } from './services/authService.js';
 import { renderAdminPage } from './modules/adminPage.js';
 
@@ -109,6 +109,9 @@ const initPage = () => {
     case 'student-index':
       attendance.initStudentPage();
       break;
+    case 'student-dashboard':
+      studentDashboard.initStudentDashboardPage();
+      break;
     default:
       attendance.initStudentPage();
       break;
@@ -117,4 +120,4 @@ const initPage = () => {
 
 document.addEventListener('DOMContentLoaded', initPage);
 
-export { APP_CONFIG, router, notifications, storage, validation, locationModule, attendance, auth, dashboard, students, sessions, attendanceAdmin, reports, settings, logs, profile };
+export { APP_CONFIG, router, notifications, validation, locationModule, attendance, auth, dashboard, students, sessions, attendanceAdmin, reports, settings, logs, profile };

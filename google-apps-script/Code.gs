@@ -165,6 +165,33 @@ function handleStudentLogin(body) {
   const locationSettings = getLocationSettings();
   const allowMultipleDevices = parseBoolean(locationSettings.allow_multiple_devices);
 
+  const students = getEntityRows(SHEET_CONFIG.students, {});
+  const existingStudent = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
+  if (existingStudent) {
+    const updatedStudent = Object.assign({}, existingStudent, {
+      name: studentName,
+      department: String(body.department || getRowValue(existingStudent, 'department') || '').trim(),
+      level: String(body.level || getRowValue(existingStudent, 'level') || '').trim(),
+      updated_at: new Date().toISOString()
+    });
+    updateRow(SHEET_CONFIG.students, existingStudent.__rowNum, updatedStudent);
+  } else {
+    const newStudent = {
+      id: generateId('student'),
+      student_id: studentId,
+      name: studentName,
+      department: String(body.department || '').trim(),
+      faculty: '',
+      level: String(body.level || '').trim(),
+      phone: '',
+      email: '',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    appendRow(SHEET_CONFIG.students, newStudent);
+  }
+
   const existingByStudent = findStudentSessionByStudentId(studentId);
   if (existingByStudent) {
     const existingFingerprint = String(getRowValue(existingByStudent, 'device_fingerprint') || '').trim();
@@ -259,6 +286,19 @@ function handleGetStudentStatistics(params) {
   return createSuccess({ totalLectures: total, present, absent, attendanceRate: percentage, records: attendance });
 }
 
+function parseListValue(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
+  const text = String(value || '').trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+  } catch (error) {
+    // ignore JSON parse errors
+  }
+  return text.split(/\r?\n|,\s*/).map((item) => String(item || '').trim()).filter(Boolean);
+}
+
 function handleGetLocationSettings() {
   const settings = getLocationSettings();
   return createSuccess({
@@ -266,7 +306,9 @@ function handleGetLocationSettings() {
     university_longitude: settings.university_longitude || settings.longitude || '',
     gps_radius: settings.gps_radius || settings.radius || '',
     allow_multiple_devices: parseBoolean(settings.allow_multiple_devices),
-    session_duration_hours: Number(settings.session_duration_hours || 24)
+    session_duration_hours: Number(settings.session_duration_hours || 24),
+    departments: parseListValue(settings.departments || settings.department_list || ''),
+    levels: parseListValue(settings.levels || settings.level_list || '')
   });
 }
 
@@ -309,20 +351,6 @@ function handleAdminLogin(body) {
   };
   const token = generateId('token');
   return createSuccess({ token, user });
-}
-
-function handleLogin(body) {
-  return handleAdminLogin(body);
-}
-
-function sendResponse(result) {
-  if (!result || typeof result !== 'object') {
-    return jsonResponse(createSuccess(result));
-  }
-  if (result.status === 'error' || result.status === 'success') {
-    return jsonResponse(result);
-  }
-  return jsonResponse(createSuccess(result));
 }
 
 function filterRows(rows, filters) {
@@ -801,6 +829,13 @@ function handleSubmitAttendance(body) {
   return createSuccess(record);
 }
 
+function normalizeSettingValue(value) {
+  if (Array.isArray(value)) return JSON.stringify(value);
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
 function handleSaveSettings(body) {
   const settings = getEntityRows(SHEET_CONFIG.settings, {});
   const now = new Date().toISOString();
@@ -808,14 +843,15 @@ function handleSaveSettings(body) {
   const values = [];
 
   Object.keys(body || {}).forEach((key) => {
-    const value = body[key];
-    if (value === undefined) return;
+    const rawValue = body[key];
+    if (rawValue === undefined) return;
     if (key === 'action') return;
+    const value = normalizeSettingValue(rawValue);
     const existing = findRow(settings, 'key', key);
     const record = {
       id: existing ? getRowValue(existing, 'id') : generateId('setting'),
       key,
-      value: value === null || value === undefined ? '' : String(value),
+      value,
       description: getRowValue(existing, 'description') || '',
       updated_at: now
     };

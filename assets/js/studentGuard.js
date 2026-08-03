@@ -1,7 +1,7 @@
 import { studentService } from './services/studentService.js';
 
 const STUDENT_TOKEN_KEY = 'student_session_token';
-const protectedPages = ['success.html', 'denied.html', 'duplicate.html', 'error.html', 'offline.html'];
+const protectedPages = ['dashboard.html'];
 const pageName = (window.location.pathname.match(/[^/]+$/) || [''])[0] || 'index.html';
 
 function redirectToIndex(clearToken = false) {
@@ -42,9 +42,11 @@ async function initStudentGuard() {
     if (!token) return;
     try {
       const response = await studentService.getStudentSession({ sessionToken: token });
-      if (response?.status !== 'success') {
-        localStorage.removeItem(STUDENT_TOKEN_KEY);
+      if (response?.status === 'success' && response.data) {
+        window.location.href = 'dashboard.html';
+        return;
       }
+      localStorage.removeItem(STUDENT_TOKEN_KEY);
     } catch (error) {
       localStorage.removeItem(STUDENT_TOKEN_KEY);
     }

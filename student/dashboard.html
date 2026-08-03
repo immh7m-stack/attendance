@@ -3,19 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>خطأ بالنظام</title>
+  <title>لوحة الطالب</title>
   <link rel="stylesheet" href="../assets/css/theme.css">
   <link rel="stylesheet" href="../assets/css/student.css">
   <link rel="stylesheet" href="../assets/css/responsive.css">
 </head>
-<body>
+<body data-page="student-dashboard">
   <main class="page-shell">
-    <section class="form-card">
-      <h1 class="page-title">حدث خطأ بالنظام</h1>
-      <p class="page-subtitle">حدثت مشكلة غير متوقعة. حاول من جديد لاحقًا.</p>
-      <a class="btn btn-secondary" href="index.html">المحاولة مرة أخرى</a>
+    <section class="form-card" id="studentDashboardContainer">
+      <div class="loader">جاري تحميل لوحة الطالب...</div>
     </section>
   </main>
   <script type="module" src="../assets/js/studentGuard.js"></script>
+  <script type="module" src="../assets/js/app.js"></script>
 </body>
 </html>

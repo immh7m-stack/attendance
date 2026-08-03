@@ -19,7 +19,7 @@
         <div id="studentStats" class="student-stats"></div>
         <button id="studentLogoutBtn" type="button" class="btn btn-secondary">تسجيل الخروج</button>
       </div>
-      <p class="page-subtitle">أدخل بيانات الطالب والإحداثيات لتسجيل الحضور.</p>
+      <p class="page-subtitle">أدخل بياناتك وسيتم استخدام الموقع الحالي تلقائيًا لتسجيل الحضور.</p>
       <form id="attendance-form" class="attendance-form" novalidate>
         <div class="form-group">
           <label class="label" for="studentId">رقم الطالب</label>
@@ -33,32 +33,17 @@
           <label class="label" for="department">القسم</label>
           <select id="department" name="department" required>
             <option value="">اختر القسم</option>
-            <option value="علوم الحاسوب">علوم الحاسوب</option>
-            <option value="تقنية المعلومات">تقنية المعلومات</option>
-            <option value="الهندسة">الهندسة</option>
           </select>
         </div>
         <div class="form-group">
           <label class="label" for="level">المستوى</label>
           <select id="level" name="level" required>
             <option value="">اختر المستوى</option>
-            <option value="Level 1">المستوى 1</option>
-            <option value="Level 2">المستوى 2</option>
-            <option value="Level 3">المستوى 3</option>
           </select>
         </div>
-        <div class="form-group">
-          <label class="label" for="latitude">خط العرض (اختياري)</label>
-          <input class="input" id="latitude" name="latitude" type="number" step="any" inputmode="decimal" placeholder="31.420481">
-        </div>
-        <div class="form-group">
-          <label class="label" for="longitude">خط الطول (اختياري)</label>
-          <input class="input" id="longitude" name="longitude" type="number" step="any" inputmode="decimal" placeholder="31.764776">
-        </div>
-        <p class="helper-text">يمكنك إدخال الإحداثيات يدويًا إذا كان الـ GPS غير متوفّر.</p>
-        <div id="locationStatus" class="helper-text">التحقق من الموقع قبل الإرسال...</div>
+        <p class="helper-text">سيتم استخدام الموقع الحالي تلقائيًا عبر متصفحك. لا حاجة لإدخال الإحداثيات يدويًا.</p>
+        <div id="locationStatus" class="helper-text">سيتم التحقق من الموقع بعد الضغط على تسجيل الحضور.</div>
         <button class="btn btn-primary" type="submit">تسجيل الحضور</button>
-        <p class="helper-text">سوف يتم حفظ التسجيل محلياً وحمايته من التكرار.</p>
       </form>
       <div id="studentCard" class="student-card"></div>
       <a class="back-link" href="../index.html">العودة</a>

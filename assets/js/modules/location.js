@@ -44,19 +44,10 @@ export async function getCurrentLocation() {
         });
       },
       (error) => {
-        // If permission denied, redirect to denied page
-        if (error && error.code === error.PERMISSION_DENIED) {
-          const path = window.location.pathname || '';
-          if (path.includes('/student/')) {
-            window.location.href = 'denied.html';
-          } else if (path.includes('/admin/')) {
-            window.location.href = '../student/denied.html';
-          } else {
-            window.location.href = 'student/denied.html';
-          }
-          return reject(new Error('Geolocation permission denied'));
-        }
-        reject(error);
+        const message = error && error.code === error.PERMISSION_DENIED
+          ? 'تم رفض إذن الموقع. مطلوب السماح بالموقع لتسجيل الحضور.'
+          : error?.message || 'تعذّر الحصول على الموقع.';
+        reject(new Error(message));
       },
       { enableHighAccuracy: true, timeout: APP_CONFIG.timeoutMs, maximumAge: 0 }
     );

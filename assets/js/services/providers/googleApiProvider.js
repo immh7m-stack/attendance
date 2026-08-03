@@ -29,8 +29,8 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
 
   if (body && method !== 'GET') {
     if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
-      requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
-      options.body = new URLSearchParams(body).toString();
+      requestHeaders['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(body);
     } else if (requestHeaders['Content-Type'] === 'application/json' || requestHeaders['content-type'] === 'application/json') {
       options.body = JSON.stringify(body);
     } else {
