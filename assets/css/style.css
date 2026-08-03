@@ -1,0 +1,5 @@
+body { background: var(--color-bg); color: var(--color-text); }
+.actions { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-6); }
+.page-shell { min-height: 100vh; display: grid; place-items: center; padding: var(--space-6); }
+.hero-card, .form-card { padding: var(--space-8); max-width: 680px; border-radius: var(--radius); box-shadow: var(--shadow); background: var(--color-surface); }
+.form-card { width: min(560px, 100%); }

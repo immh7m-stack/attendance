@@ -1,0 +1,4 @@
+[
+  { "id": "session-001", "subjectId": "sub-001", "subjectName": "برمجة الويب", "date": "2026-08-01", "start": "09:00", "end": "10:30", "location": { "latitude": 30.0444, "longitude": 31.2357, "radius": 300 }, "room": "قاعة A", "status": "open" },
+  { "id": "session-002", "subjectId": "sub-002", "subjectName": "قواعد البيانات", "date": "2026-08-01", "start": "11:00", "end": "12:30", "location": { "latitude": 30.0444, "longitude": 31.2357, "radius": 250 }, "room": "قاعة B", "status": "closed" }
+]
