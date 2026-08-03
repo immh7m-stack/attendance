@@ -1,10 +1,10 @@
 import { createCard } from './components.js';
 import { success, error } from './notifications.js';
-import { getCurrentUser } from '../services/authService.js';
+import { authService } from '../services/authService.js';
 
 export async function initProfilePage(container) {
   if (!container) return;
-  const currentUser = getCurrentUser() || {};
+  const currentUser = authService.getCurrentUser() || {};
   const card = createCard('الملف الشخصي', '');
   card.querySelector('.card-body').innerHTML = `
     <div class="profile-grid">

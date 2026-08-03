@@ -4,7 +4,8 @@ const SHEET_CONFIG = {
   sessions: 'sessions',
   attendance: 'attendance',
   logs: 'logs',
-  admins: 'admins'
+  admins: 'admins',
+  student_sessions: 'student_sessions'
 };
 
 const SCRIPT_PROPERTY_SPREADSHEET_ID = 'SPREADSHEET_ID';
@@ -62,6 +63,204 @@ function getRowValue(row, key) {
 
 function getRecordValue(record, key) {
   return getRowValue(record, key);
+}
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'on'].includes(normalized);
+}
+
+function getTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getLocationSettings() {
+  const settings = getEntityRows(SHEET_CONFIG.settings, {});
+  return settings.reduce((acc, item) => {
+    const key = String(getRowValue(item, 'key') || '').trim();
+    if (!key) return acc;
+    acc[key] = getRowValue(item, 'value');
+    return acc;
+  }, {});
+}
+
+function findStudentSessionByStudentId(studentId) {
+  const sessions = getEntityRows(SHEET_CONFIG.student_sessions, { student_id: studentId, login_date: getTodayDate() });
+  return sessions.find((session) => String(getRowValue(session, 'active')).toLowerCase() === 'true') || null;
+}
+
+function isSessionActive(session) {
+  if (!session) return false;
+  const active = String(getRowValue(session, 'active')).toLowerCase() === 'true';
+  const expiresAt = new Date(String(getRowValue(session, 'expires_at') || '')).getTime();
+  return active && !Number.isNaN(expiresAt) && expiresAt > Date.now();
+}
+
+function findStudentSessionByToken(token) {
+  const sessions = getEntityRows(SHEET_CONFIG.student_sessions, { session_token: token });
+  const session = sessions[0] || null;
+  return isSessionActive(session) ? session : null;
+}
+
+function findStudentSessionByFingerprint(fingerprint) {
+  const sessions = getEntityRows(SHEET_CONFIG.student_sessions, { device_fingerprint: fingerprint, login_date: getTodayDate() });
+  return sessions.find((session) => isSessionActive(session)) || null;
+}
+
+function createOrUpdateStudentSession(sessionData) {
+  const existing = findStudentSessionByStudentId(sessionData.student_id);
+  if (existing) {
+    const updated = Object.assign({}, existing, sessionData, { updated_at: new Date().toISOString() });
+    return updateRow(SHEET_CONFIG.student_sessions, existing.__rowNum, updated);
+  }
+  appendRow(SHEET_CONFIG.student_sessions, sessionData);
+  return sessionData;
+}
+
+function isWithinAllowedRadius(latitude, longitude) {
+  const settings = getLocationSettings();
+  const centerLat = Number(settings.university_latitude || settings.latitude || 0);
+  const centerLng = Number(settings.university_longitude || settings.longitude || 0);
+  const radius = Number(settings.gps_radius || settings.radius || 300);
+  if (!centerLat || !centerLng) return false;
+  const distance = calculateDistance(centerLat, centerLng, Number(latitude), Number(longitude));
+  return { allowed: distance <= radius, distance, radius };
+}
+
+function handleStudentLogout(body) {
+  const token = String(body.sessionToken || body.token || body.session_token || '').trim();
+  if (!token) return createSuccess({ ok: true });
+  const session = findStudentSessionByToken(token);
+  if (!session) return createSuccess({ ok: true });
+  const updated = Object.assign({}, session, { active: false, updated_at: new Date().toISOString() });
+  updateRow(SHEET_CONFIG.student_sessions, session.__rowNum, updated);
+  return createSuccess({ ok: true });
+}
+
+function handleAuthLogin(body) {
+  const studentId = String(body.studentId || body.student_id || '').trim();
+  if (studentId) {
+    return handleStudentLogin(body);
+  }
+  return handleAdminLogin(body);
+}
+
+function handleStudentLogin(body) {
+  const studentId = String(body.studentId || body.student_id || '').trim();
+  const studentName = String(body.name || body.studentName || body.student_name || '').trim();
+  const latitude = String(body.latitude || '').trim();
+  const longitude = String(body.longitude || '').trim();
+  const deviceFingerprint = String(body.deviceFingerprint || body.device_fingerprint || '').trim();
+  const publicIp = String(body.publicIp || body.public_ip || '').trim();
+  const userAgent = String(body.userAgent || body.user_agent || body.ua || '').trim();
+
+  if (!studentId || !studentName || !latitude || !longitude || !deviceFingerprint) {
+    return createError('validation_error', 'Missing required student login fields', { studentId: 'required', studentName: 'required', latitude: 'required', longitude: 'required', deviceFingerprint: 'required' });
+  }
+
+  const geoCheck = isWithinAllowedRadius(latitude, longitude);
+  if (!geoCheck.allowed) {
+    return createError('out_of_range', 'Student is outside the allowed geographic area', { distance: Math.round(geoCheck.distance), radius: geoCheck.radius });
+  }
+
+  const locationSettings = getLocationSettings();
+  const allowMultipleDevices = parseBoolean(locationSettings.allow_multiple_devices);
+
+  const existingByStudent = findStudentSessionByStudentId(studentId);
+  if (existingByStudent) {
+    const existingFingerprint = String(getRowValue(existingByStudent, 'device_fingerprint') || '').trim();
+    if (existingFingerprint !== deviceFingerprint && !allowMultipleDevices) {
+      return createError('device_mismatch', 'تم تغيير الجهاز بشكل كبير، مطلوب التحقق.', { allowMultipleDevices });
+    }
+    return createSuccess(existingByStudent);
+  }
+
+  const collision = findStudentSessionByFingerprint(deviceFingerprint);
+  if (collision && String(getRowValue(collision, 'student_id')) !== studentId) {
+    return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+  }
+
+  const sessionToken = generateId('student_session');
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + (Number(locationSettings.session_duration_hours || 24) * 3600000)).toISOString();
+  const loginDate = getTodayDate();
+  const loginTime = now.toTimeString().split(' ')[0];
+
+  const session = {
+    id: generateId('student_session_record'),
+    student_id: studentId,
+    student_name: studentName,
+    session_token: sessionToken,
+    device_fingerprint: deviceFingerprint,
+    public_ip: publicIp,
+    user_agent: userAgent,
+    login_date: loginDate,
+    login_time: loginTime,
+    expires_at: expiresAt,
+    latitude: latitude,
+    longitude: longitude,
+    active: true,
+    created_at: now.toISOString(),
+    updated_at: now.toISOString()
+  };
+
+  createOrUpdateStudentSession(session);
+  return createSuccess(session);
+}
+
+function handleGetStudentSession(params) {
+  const token = String(params.sessionToken || params.token || params.session_token || '').trim();
+  const studentId = String(params.studentId || params.student_id || '').trim();
+  if (token) {
+    const session = findStudentSessionByToken(token);
+    if (!session) return createError('not_found', 'Student session not found', { token });
+    return createSuccess(session);
+  }
+  if (studentId) {
+    const session = findStudentSessionByStudentId(studentId);
+    if (!session) return createError('not_found', 'Student session not found', { studentId });
+    return createSuccess(session);
+  }
+  return createError('validation_error', 'studentId or sessionToken is required');
+}
+
+function handleGetStudentProfile(params) {
+  const studentId = String(params.studentId || params.student_id || '').trim();
+  if (!studentId) return createError('validation_error', 'studentId is required');
+  const students = getEntityRows(SHEET_CONFIG.students, {});
+  const student = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
+  if (!student) return createError('not_found', 'Student not found', { studentId });
+  return createSuccess(student);
+}
+
+function handleGetStudentAttendance(params) {
+  const studentId = String(params.studentId || params.student_id || '').trim();
+  if (!studentId) return createError('validation_error', 'studentId is required');
+  const attendance = getEntityRows(SHEET_CONFIG.attendance, { studentId });
+  return createSuccess(attendance);
+}
+
+function handleGetStudentStatistics(params) {
+  const studentId = String(params.studentId || params.student_id || '').trim();
+  if (!studentId) return createError('validation_error', 'studentId is required');
+  const attendance = getEntityRows(SHEET_CONFIG.attendance, { studentId });
+  const present = attendance.filter((item) => String(getRowValue(item, 'status')).toLowerCase() === 'present').length;
+  const absent = attendance.filter((item) => String(getRowValue(item, 'status')).toLowerCase() === 'absent').length;
+  const total = attendance.length;
+  const percentage = total ? Math.round((present / total) * 100) : 0;
+  return createSuccess({ totalLectures: total, present, absent, attendanceRate: percentage, records: attendance });
+}
+
+function handleGetLocationSettings() {
+  const settings = getLocationSettings();
+  return createSuccess({
+    university_latitude: settings.university_latitude || settings.latitude || '',
+    university_longitude: settings.university_longitude || settings.longitude || '',
+    gps_radius: settings.gps_radius || settings.radius || '',
+    allow_multiple_devices: parseBoolean(settings.allow_multiple_devices),
+    session_duration_hours: Number(settings.session_duration_hours || 24)
+  });
 }
 
 function jsonResponse(payload, callback) {
@@ -221,12 +420,27 @@ function doGet(e) {
       return jsonResponse(handleLogin(params), callback);
     }
     if (route.resource === 'settings') {
+      if (route.id === 'location') {
+        return jsonResponse(handleGetLocationSettings());
+      }
       return jsonResponse(createSuccess(handleGetSettings(params)));
     }
     if (route.resource === 'students') {
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.students, params)));
     }
     if (route.resource === 'student') {
+      if (route.id === 'session') {
+        return jsonResponse(handleGetStudentSession(params));
+      }
+      if (route.id === 'profile') {
+        return jsonResponse(handleGetStudentProfile(params));
+      }
+      if (route.id === 'attendance') {
+        return jsonResponse(handleGetStudentAttendance(params));
+      }
+      if (route.id === 'statistics') {
+        return jsonResponse(handleGetStudentStatistics(params));
+      }
       return jsonResponse(handleGetStudent(params));
     }
     if (route.resource === 'sessions') {
@@ -367,10 +581,10 @@ function doPost(e) {
 
   try {
     if (route.resource === 'login') {
-      return jsonResponse(handleLogin(body));
+      return jsonResponse(handleAuthLogin(body));
     }
     if (route.resource === 'logout') {
-      return jsonResponse(createSuccess({ ok: true }));
+      return jsonResponse(handleStudentLogout(body));
     }
     if (route.resource === 'students') {
       if (route.id && route.subAction === 'delete') {
@@ -520,29 +734,47 @@ function handleCreateSession(body) {
 }
 
 function handleSubmitAttendance(body) {
-  if (!body.studentId || !body.sessionId || !body.date || !body.time || !body.latitude || !body.longitude) {
-    return createError('validation_error', 'Missing required fields for attendance', { studentId: 'required', sessionId: 'required', date: 'required', time: 'required', latitude: 'required', longitude: 'required' });
+  if (!body.studentId || !body.date || !body.time || !body.latitude || !body.longitude) {
+    return createError('validation_error', 'Missing required fields for attendance', { studentId: 'required', date: 'required', time: 'required', latitude: 'required', longitude: 'required' });
   }
-  const sessions = getEntityRows(SHEET_CONFIG.sessions, {});
-  const session = findRow(sessions, 'session_id', body.sessionId);
-  if (!session) return createError('not_found', 'Session not found', { sessionId: body.sessionId });
-  if (String(getRowValue(session, 'status')).toLowerCase() !== 'open') return createError('session_closed', 'Session is closed', { sessionId: body.sessionId });
-  const distance = calculateDistance(Number(getRowValue(session, 'latitude')), Number(getRowValue(session, 'longitude')), Number(body.latitude), Number(body.longitude));
-  const radius = Number(getRowValue(session, 'radius') || body.radius || 0);
+
+  const studentSession = body.sessionToken ? findStudentSessionByToken(body.sessionToken) : null;
+  let sessionId = body.sessionId || '';
+  let distance = 0;
+  let radius = 0;
+
+  if (studentSession) {
+    if (!isSessionActive(studentSession)) {
+      return createError('session_expired', 'Student session is expired or inactive', { sessionToken: body.sessionToken });
+    }
+    sessionId = String(getRowValue(studentSession, 'session_token') || '');
+    distance = calculateDistance(Number(getRowValue(studentSession, 'latitude')), Number(getRowValue(studentSession, 'longitude')), Number(body.latitude), Number(body.longitude));
+    radius = Number(getRowValue(studentSession, 'radius') || body.radius || 0);
+  } else {
+    const sessions = getEntityRows(SHEET_CONFIG.sessions, {});
+    const session = findRow(sessions, 'session_id', body.sessionId);
+    if (!session) return createError('not_found', 'Session not found', { sessionId: body.sessionId });
+    if (String(getRowValue(session, 'status')).toLowerCase() !== 'open') return createError('session_closed', 'Session is closed', { sessionId: body.sessionId });
+    distance = calculateDistance(Number(getRowValue(session, 'latitude')), Number(getRowValue(session, 'longitude')), Number(body.latitude), Number(body.longitude));
+    radius = Number(getRowValue(session, 'radius') || body.radius || 0);
+  }
+
   if (radius > 0 && distance > radius) {
     return createError('out_of_range', 'Student is outside the allowed radius', { distance: Math.round(distance), radius });
   }
-  const attendanceRecords = getEntityRows(SHEET_CONFIG.attendance, { studentId: body.studentId, sessionId: body.sessionId, date: body.date });
+
+  const attendanceRecords = getEntityRows(SHEET_CONFIG.attendance, { studentId: body.studentId, sessionId, date: body.date });
   if (attendanceRecords.length) {
-    return createError('duplicate_attendance', 'Attendance already recorded', { studentId: body.studentId, sessionId: body.sessionId });
+    return createError('duplicate_attendance', 'Attendance already recorded', { studentId: body.studentId, sessionId, date: body.date });
   }
+
   const record = {
     id: generateId('attendance'),
     student_id: body.studentId,
     student_name: body.studentName || '',
     department: body.department || '',
     level: body.level || '',
-    session_id: body.sessionId,
+    session_id: sessionId,
     date: body.date,
     time: body.time,
     status: body.status || 'present',
