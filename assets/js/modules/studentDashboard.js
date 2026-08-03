@@ -1,8 +1,8 @@
 import { studentService } from '../services/studentService.js';
 import { attendanceService } from '../services/attendanceService.js';
 import * as locationModule from './location.js';
-import * as settingsService from '../services/settingsService.js';
 import * as notifications from './notifications.js';
+import { sessionService } from '../services/sessionService.js';
 
 function createDashboardContent(student, session, stats, attendanceRecords) {
   const attendanceRows = attendanceRecords.map((item) => `
@@ -94,12 +94,17 @@ export async function initStudentDashboardPage() {
       notifications.loading(true, 'جاري استخدام موقعك لتسجيل الحضور...');
       try {
         const currentLocation = await locationModule.getCurrentLocation();
-        const locationSettingsRes = await settingsService.getLocationSettings();
-        const locationSettings = locationSettingsRes?.status === 'success' ? locationSettingsRes.data : null;
-        const universityLatitude = Number(locationSettings?.university_latitude || locationSettings?.latitude || 0);
-        const universityLongitude = Number(locationSettings?.university_longitude || locationSettings?.longitude || 0);
-        const gpsRadius = Number(locationSettings?.gps_radius || locationSettings?.radius || 300);
-        const radiusCheck = locationModule.isInsideRadius(currentLocation, { latitude: universityLatitude, longitude: universityLongitude }, gpsRadius);
+        const activeSessionRes = await sessionService.getActiveSession();
+        const activeSession = activeSessionRes?.status === 'success' ? activeSessionRes.data : null;
+        if (!activeSession) {
+          notifications.error('لا توجد محاضرة حالية.');
+          notifications.loading(false);
+          return;
+        }
+        const lectureLatitude = Number(activeSession.latitude || 0);
+        const lectureLongitude = Number(activeSession.longitude || 0);
+        const gpsRadius = Number(activeSession.radius || 300);
+        const radiusCheck = locationModule.isInsideRadius(currentLocation, { latitude: lectureLatitude, longitude: lectureLongitude }, gpsRadius);
         if (!radiusCheck.inside) {
           notifications.error(`أنت خارج نطاق الجامعة. المسافة ${Math.round(radiusCheck.distance)} متر.`);
           notifications.loading(false);

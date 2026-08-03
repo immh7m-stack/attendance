@@ -122,20 +122,52 @@ id,student_id,student_name,session_id,department,level,date,time,status,distance
 
 ---
 
-## Sheet 5: logs
-الغرض: تسجيل العمليات الإدارية مثل تسجيل الدخول أو إنشاء الجلسات أو التغييرات المهمة.
+## Sheet 5: departments
+الغرض: تخزين الأقسام المتاحة في النظام.
 
 ### Columns
 - `id` (String, Primary Key)
-- `actor` (String)
-- `action` (String)
-- `target` (String)
-- `result` (String)
-- `timestamp` (Datetime)
-- `date` (Datetime, optional alias for `timestamp`)
-- `details` (String)
-- `description` (String, optional alias for `details`)
-- `user` (String, optional alias for `actor`)
+- `department_name` (String)
+- `active` (Boolean)
+- `created_at` (Datetime)
+- `updated_at` (Datetime)
+
+### Sample header row
+```text
+id,department_name,active,created_at,updated_at
+```
+
+### Validation rules
+- `department_name` مطلوب.
+- `active` يجب أن يكون `TRUE` أو `FALSE`.
+
+---
+
+## Sheet 6: levels
+الغرض: تخزين الفرق المرتبطة بكل قسم.
+
+### Columns
+- `id` (String, Primary Key)
+- `department_id` (String)
+- `level_name` (String)
+- `active` (Boolean)
+- `created_at` (Datetime)
+- `updated_at` (Datetime)
+
+### Sample header row
+```text
+id,department_id,level_name,active,created_at,updated_at
+```
+
+### Validation rules
+- `department_id` مطلوب.
+- `level_name` مطلوب.
+- `active` يجب أن يكون `TRUE` أو `FALSE`.
+
+---
+
+## Sheet 7: logs
+الغرض: تسجيل العمليات الإدارية مثل تسجيل الدخول أو إنشاء الجلسات أو التغييرات المهمة.
 
 ### Sample header row
 ```text
@@ -183,6 +215,8 @@ id,username,password_hash,password,role,email,status,last_login,created_at,updat
 - `id` (String, Primary Key)
 - `student_id` (String)
 - `student_name` (String)
+- `student_department` (String)
+- `student_level` (String)
 - `session_token` (String, Unique)
 - `login_date` (Date)
 - `login_time` (Time)
@@ -199,7 +233,7 @@ id,username,password_hash,password,role,email,status,last_login,created_at,updat
 
 ### Sample header row
 ```text
-id,student_id,student_name,session_token,login_date,login_time,expires_at,latitude,longitude,radius,device_fingerprint,public_ip,user_agent,active,created_at,updated_at
+id,student_id,student_name,student_department,student_level,session_token,login_date,login_time,expires_at,latitude,longitude,radius,device_fingerprint,public_ip,user_agent,active,created_at,updated_at
 ```
 
 ### Validation rules

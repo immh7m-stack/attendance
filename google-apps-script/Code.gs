@@ -5,7 +5,9 @@ const SHEET_CONFIG = {
   attendance: 'attendance',
   logs: 'logs',
   admins: 'admins',
-  student_sessions: 'student_sessions'
+  student_sessions: 'student_sessions',
+  departments: 'departments',
+  levels: 'levels'
 };
 
 const SCRIPT_PROPERTY_SPREADSHEET_ID = 'SPREADSHEET_ID';
@@ -118,14 +120,15 @@ function createOrUpdateStudentSession(sessionData) {
   return sessionData;
 }
 
-function isWithinAllowedRadius(latitude, longitude) {
-  const settings = getLocationSettings();
-  const centerLat = Number(settings.university_latitude || settings.latitude || 0);
-  const centerLng = Number(settings.university_longitude || settings.longitude || 0);
-  const radius = Number(settings.gps_radius || settings.radius || 300);
-  if (!centerLat || !centerLng) return false;
+function isWithinAllowedRadius(latitude, longitude, centerLat, centerLng, radius) {
+  if (!centerLat || !centerLng) return { allowed: false, distance: Infinity, radius };
   const distance = calculateDistance(centerLat, centerLng, Number(latitude), Number(longitude));
   return { allowed: distance <= radius, distance, radius };
+}
+
+function getActiveLectureSession() {
+  const sessions = getEntityRows(SHEET_CONFIG.sessions, { status: 'open' });
+  return sessions[0] || null;
 }
 
 function handleStudentLogout(body) {
@@ -157,40 +160,60 @@ function handleStudentLogin(body) {
     return createError('validation_error', 'Missing required student login fields', { studentId: 'required', studentName: 'required', latitude: 'required', longitude: 'required', deviceFingerprint: 'required' });
   }
 
-  const geoCheck = isWithinAllowedRadius(latitude, longitude);
-  if (!geoCheck.allowed) {
-    return createError('out_of_range', 'Student is outside the allowed geographic area', { distance: Math.round(geoCheck.distance), radius: geoCheck.radius });
-  }
-
   const locationSettings = getLocationSettings();
   const allowMultipleDevices = parseBoolean(locationSettings.allow_multiple_devices);
 
+  const departmentName = String(body.department || '').trim();
+  const levelName = String(body.level || '').trim();
+  const activeDepartments = getEntityRows(SHEET_CONFIG.departments, { active: 'TRUE' });
+  const departmentRow = findRow(activeDepartments, 'department_name', departmentName);
+  if (!departmentRow) {
+    return createError('invalid_department', 'القسم غير مسموح به.', { department: body.department });
+  }
+  const allowedLevels = getEntityRows(SHEET_CONFIG.levels, { active: 'TRUE', department_id: getRowValue(departmentRow, 'id') });
+  const levelRow = findRow(allowedLevels, 'level_name', levelName);
+  if (!levelRow) {
+    return createError('invalid_level', 'المستوى غير مسموح به لهذا القسم.', { level: body.level });
+  }
+
+  const activeSession = getActiveLectureSession();
+  let geoCenter = null;
+  let geoRadius = 0;
+  if (activeSession) {
+    geoCenter = {
+      latitude: Number(getRowValue(activeSession, 'latitude') || 0),
+      longitude: Number(getRowValue(activeSession, 'longitude') || 0)
+    };
+    geoRadius = Number(getRowValue(activeSession, 'radius') || 300);
+  } else {
+    geoCenter = {
+      latitude: Number(locationSettings.university_latitude || locationSettings.latitude || 0),
+      longitude: Number(locationSettings.university_longitude || locationSettings.longitude || 0)
+    };
+    geoRadius = Number(locationSettings.gps_radius || locationSettings.radius || 300);
+  }
+
+  const geoCheck = isWithinAllowedRadius(latitude, longitude, geoCenter.latitude, geoCenter.longitude, geoRadius);
+  if (!geoCheck.allowed) {
+    return createError('out_of_range', 'Student is outside the allowed geographic area', { distance: Math.round(geoCheck.distance), radius: geoRadius, session: activeSession ? getRowValue(activeSession, 'session_id') : null });
+  }
+
   const students = getEntityRows(SHEET_CONFIG.students, {});
   const existingStudent = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
-  if (existingStudent) {
-    const updatedStudent = Object.assign({}, existingStudent, {
-      name: studentName,
-      department: String(body.department || getRowValue(existingStudent, 'department') || '').trim(),
-      level: String(body.level || getRowValue(existingStudent, 'level') || '').trim(),
-      updated_at: new Date().toISOString()
-    });
-    updateRow(SHEET_CONFIG.students, existingStudent.__rowNum, updatedStudent);
-  } else {
-    const newStudent = {
-      id: generateId('student'),
-      student_id: studentId,
-      name: studentName,
-      department: String(body.department || '').trim(),
-      faculty: '',
-      level: String(body.level || '').trim(),
-      phone: '',
-      email: '',
-      status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    appendRow(SHEET_CONFIG.students, newStudent);
+  if (!existingStudent) {
+    return createError('student_not_allowed', 'هذا الطالب غير مسجل في النظام. تواصل مع الإدارة.');
   }
+  const studentStatus = String(getRowValue(existingStudent, 'status') || 'inactive').toLowerCase();
+  if (studentStatus !== 'active') {
+    return createError('student_inactive', 'حالة الطالب غير نشطة، غير مسموح بالدخول.');
+  }
+  const updatedStudent = Object.assign({}, existingStudent, {
+    name: studentName,
+    department: String(body.department || getRowValue(existingStudent, 'department') || '').trim(),
+    level: String(body.level || getRowValue(existingStudent, 'level') || '').trim(),
+    updated_at: new Date().toISOString()
+  });
+  updateRow(SHEET_CONFIG.students, existingStudent.__rowNum, updatedStudent);
 
   const existingByStudent = findStudentSessionByStudentId(studentId);
   if (existingByStudent) {
@@ -204,6 +227,9 @@ function handleStudentLogin(body) {
       user_agent: userAgent,
       latitude,
       longitude,
+      student_department: departmentName,
+      student_level: levelName,
+      session_id: activeSession ? String(getRowValue(activeSession, 'session_id') || '') : String(body.sessionId || ''),
       updated_at: new Date().toISOString()
     });
     updateRow(SHEET_CONFIG.student_sessions, existingByStudent.__rowNum, updatedSession);
@@ -225,6 +251,9 @@ function handleStudentLogin(body) {
     id: generateId('student_session_record'),
     student_id: studentId,
     student_name: studentName,
+    student_department: departmentName,
+    student_level: levelName,
+    session_id: activeSession ? String(getRowValue(activeSession, 'session_id') || '') : String(body.sessionId || ''),
     session_token: sessionToken,
     device_fingerprint: deviceFingerprint,
     public_ip: publicIp,
@@ -467,6 +496,12 @@ function doGet(e) {
     if (route.resource === 'students') {
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.students, params)));
     }
+    if (route.resource === 'departments') {
+      return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.departments, params)));
+    }
+    if (route.resource === 'levels') {
+      return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.levels, params)));
+    }
     if (route.resource === 'student') {
       if (route.id === 'session') {
         return jsonResponse(handleGetStudentSession(params));
@@ -634,6 +669,24 @@ function doPost(e) {
       }
       return jsonResponse(handleCreateStudent(body));
     }
+    if (route.resource === 'departments') {
+      if (route.id && route.subAction === 'delete') {
+        return jsonResponse(handleDeleteRecord(SHEET_CONFIG.departments, route.id));
+      }
+      if (route.id) {
+        return jsonResponse(handleUpdateDepartment(route.id, body));
+      }
+      return jsonResponse(handleCreateDepartment(body));
+    }
+    if (route.resource === 'levels') {
+      if (route.id && route.subAction === 'delete') {
+        return jsonResponse(handleDeleteRecord(SHEET_CONFIG.levels, route.id));
+      }
+      if (route.id) {
+        return jsonResponse(handleUpdateLevel(route.id, body));
+      }
+      return jsonResponse(handleCreateLevel(body));
+    }
     if (route.resource === 'sessions') {
       if (route.id && route.subAction === 'close') {
         return jsonResponse(handleCloseSession(route.id));
@@ -743,6 +796,76 @@ function handleCreateStudent(body) {
   return createSuccess(student);
 }
 
+function handleCreateDepartment(body) {
+  if (!body.department_name) {
+    return createError('validation_error', 'Missing required fields', { department_name: 'required' });
+  }
+  const departments = getEntityRows(SHEET_CONFIG.departments, {});
+  if (findRow(departments, 'department_name', body.department_name)) {
+    return createError('duplicate_department', 'Department already exists', { department_name: body.department_name });
+  }
+  const now = new Date().toISOString();
+  const department = {
+    id: generateId('department'),
+    department_name: body.department_name,
+    active: body.active === true || String(body.active).toLowerCase() === 'true' ? 'TRUE' : 'FALSE',
+    created_at: now,
+    updated_at: now
+  };
+  appendRow(SHEET_CONFIG.departments, department);
+  return createSuccess(department);
+}
+
+function handleUpdateDepartment(id, body) {
+  if (!id) return createError('validation_error', 'Department id is required');
+  const departments = getEntityRows(SHEET_CONFIG.departments, {});
+  const existing = findRow(departments, 'id', id) || findRow(departments, 'department_name', id);
+  if (!existing) return createError('not_found', 'Department not found', { id });
+  const updated = Object.assign({}, existing, {
+    department_name: String(body.department_name || getRowValue(existing, 'department_name') || '').trim(),
+    active: body.active === true || String(body.active).toLowerCase() === 'true' ? 'TRUE' : 'FALSE',
+    updated_at: new Date().toISOString()
+  });
+  updateRow(SHEET_CONFIG.departments, existing.__rowNum, updated);
+  return createSuccess(updated);
+}
+
+function handleCreateLevel(body) {
+  if (!body.department_id || !body.level_name) {
+    return createError('validation_error', 'Missing required fields', { department_id: 'required', level_name: 'required' });
+  }
+  const levels = getEntityRows(SHEET_CONFIG.levels, {});
+  if (findRow(levels, 'level_name', body.level_name) && String(getRowValue(body, 'department_id')) === String(getRowValue(findRow(levels, 'level_name', body.level_name), 'department_id'))) {
+    return createError('duplicate_level', 'Level already exists for this department', { department_id: body.department_id, level_name: body.level_name });
+  }
+  const now = new Date().toISOString();
+  const level = {
+    id: generateId('level'),
+    department_id: body.department_id,
+    level_name: body.level_name,
+    active: body.active === true || String(body.active).toLowerCase() === 'true' ? 'TRUE' : 'FALSE',
+    created_at: now,
+    updated_at: now
+  };
+  appendRow(SHEET_CONFIG.levels, level);
+  return createSuccess(level);
+}
+
+function handleUpdateLevel(id, body) {
+  if (!id) return createError('validation_error', 'Level id is required');
+  const levels = getEntityRows(SHEET_CONFIG.levels, {});
+  const existing = findRow(levels, 'id', id) || findRow(levels, 'level_name', id);
+  if (!existing) return createError('not_found', 'Level not found', { id });
+  const updated = Object.assign({}, existing, {
+    department_id: String(body.department_id || getRowValue(existing, 'department_id') || '').trim(),
+    level_name: String(body.level_name || getRowValue(existing, 'level_name') || '').trim(),
+    active: body.active === true || String(body.active).toLowerCase() === 'true' ? 'TRUE' : 'FALSE',
+    updated_at: new Date().toISOString()
+  });
+  updateRow(SHEET_CONFIG.levels, existing.__rowNum, updated);
+  return createSuccess(updated);
+}
+
 function handleCreateSession(body) {
   if (!body.sessionId || !body.subjectName || !body.date) {
     return createError('validation_error', 'Missing required fields', { sessionId: 'required', subjectName: 'required', date: 'required' });
@@ -786,7 +909,7 @@ function handleSubmitAttendance(body) {
     if (!isSessionActive(studentSession)) {
       return createError('session_expired', 'Student session is expired or inactive', { sessionToken: body.sessionToken });
     }
-    sessionId = String(getRowValue(studentSession, 'session_token') || '');
+    sessionId = String(getRowValue(studentSession, 'session_id') || body.sessionId || '');
     distance = calculateDistance(Number(getRowValue(studentSession, 'latitude')), Number(getRowValue(studentSession, 'longitude')), Number(body.latitude), Number(body.longitude));
     radius = Number(getRowValue(studentSession, 'radius') || body.radius || 0);
   } else {

@@ -28,6 +28,12 @@ export const studentService = {
   async getStudentProfile(params = {}) {
     return get('student/profile', params);
   },
+  async getDepartments(params = {}) {
+    return get('departments', params);
+  },
+  async getLevels(params = {}) {
+    return get('levels', params);
+  },
   async getStudentAttendance(params = {}) {
     return get('student/attendance', params);
   },

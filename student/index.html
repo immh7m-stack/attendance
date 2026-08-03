@@ -10,43 +10,57 @@
 </head>
 <body data-page="student-index">
   <main class="page-shell">
-    <section class="form-card">
-      <h1 class="page-title">تسجيل الحضور</h1>
+    <section class="form-card student-form-card">
+      <div class="page-heading">
+        <div>
+          <h1 class="page-title">تسجيل الحضور</h1>
+          <p class="page-subtitle">أدخل بياناتك وسيتم تسجيل حضورك عبر الموقع الحالي والمحاضرة النشطة.</p>
+        </div>
+      </div>
+
       <div id="sessionInfo" class="session-info">جارٍ جلب بيانات الجلسة...</div>
+
       <div id="studentPanel" class="student-panel" style="display:none;">
         <div id="studentSummary" class="student-summary"></div>
         <div id="studentSessionStatus" class="student-session-status"></div>
         <div id="studentStats" class="student-stats"></div>
         <button id="studentLogoutBtn" type="button" class="btn btn-secondary">تسجيل الخروج</button>
       </div>
-      <p class="page-subtitle">أدخل بياناتك وسيتم استخدام الموقع الحالي تلقائيًا لتسجيل الحضور.</p>
+
       <form id="attendance-form" class="attendance-form" novalidate>
-        <div class="form-group">
-          <label class="label" for="studentId">رقم الطالب</label>
-          <input class="input" id="studentId" name="studentId" type="text" placeholder="أدخل رقم الطالب" required>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="label" for="studentId">رقم الطالب</label>
+            <input class="input" id="studentId" name="studentId" type="text" placeholder="أدخل رقم الطالب" required>
+          </div>
+          <div class="form-group">
+            <label class="label" for="studentName">اسم الطالب</label>
+            <input class="input" id="studentName" name="studentName" type="text" placeholder="أدخل الاسم" required>
+          </div>
+          <div class="form-group">
+            <label class="label" for="department">القسم</label>
+            <select id="department" name="department" required>
+              <option value="">اختر القسم</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="label" for="level">المستوى</label>
+            <select id="level" name="level" required>
+              <option value="">اختر المستوى</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="label" for="studentName">اسم الطالب</label>
-          <input class="input" id="studentName" name="studentName" type="text" placeholder="أدخل الاسم" required>
+
+        <div class="helper-group">
+          <p class="helper-text">سيتم التحقق من الموقع الحالي تلقائيًا عند الضغط على "تسجيل الحضور".</p>
+          <div id="locationStatus" class="helper-text helper-status">سيتم التحقق من الموقع بعد الضغط على تسجيل الحضور.</div>
         </div>
-        <div class="form-group">
-          <label class="label" for="department">القسم</label>
-          <select id="department" name="department" required>
-            <option value="">اختر القسم</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="label" for="level">المستوى</label>
-          <select id="level" name="level" required>
-            <option value="">اختر المستوى</option>
-          </select>
-        </div>
-        <p class="helper-text">سيتم استخدام الموقع الحالي تلقائيًا عبر متصفحك. لا حاجة لإدخال الإحداثيات يدويًا.</p>
-        <div id="locationStatus" class="helper-text">سيتم التحقق من الموقع بعد الضغط على تسجيل الحضور.</div>
-        <button class="btn btn-primary" type="submit">تسجيل الحضور</button>
+
+        <button class="btn btn-primary btn-block" type="submit">تسجيل الحضور</button>
       </form>
+
       <div id="studentCard" class="student-card"></div>
-      <a class="back-link" href="../index.html">العودة</a>
+      <a class="back-link" href="../index.html">العودة إلى الصفحة الرئيسية</a>
     </section>
   </main>
   <div id="global-loader" class="loader">جاري التحميل...</div>

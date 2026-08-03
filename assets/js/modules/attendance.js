@@ -5,6 +5,7 @@ import { navigateTo } from '../router.js';
 import { attendanceService } from '../services/attendanceService.js';
 import { settingsService } from '../services/settingsService.js';
 import { studentService } from '../services/studentService.js';
+import { sessionService } from '../services/sessionService.js';
 import { setState } from '../state.js';
 import { getDeviceFingerprint, getPublicIp } from './device.js';
 
@@ -116,20 +117,31 @@ export async function initStudentPage() {
   }
 
   async function loadDropdownOptions() {
-    const locationSettingsResult = await settingsService.getLocationSettings();
-    const locationSettings = locationSettingsResult?.status === 'success' ? locationSettingsResult.data : null;
-    const departments = Array.isArray(locationSettings?.departments) ? locationSettings.departments : [];
-    const levels = Array.isArray(locationSettings?.levels) ? locationSettings.levels : [];
+    const departmentsResult = await studentService.getDepartments({ active: true });
+    const departments = Array.isArray(departmentsResult?.data) ? departmentsResult.data : [];
 
     if (departmentSelect) {
-      departmentSelect.innerHTML = '<option value="">اختر القسم</option>' + departments.map((dept) => `<option value="${dept}">${dept}</option>`).join('');
+      departmentSelect.innerHTML = '<option value="">اختر القسم</option>' + departments.map((dept) => `<option value="${dept.id}" data-name="${dept.department_name}">${dept.department_name}</option>`).join('');
+      departmentSelect.disabled = departments.length === 0;
     }
     if (levelSelect) {
-      levelSelect.innerHTML = '<option value="">اختر المستوى</option>' + levels.map((level) => `<option value="${level}">${level}</option>`).join('');
+      levelSelect.innerHTML = '<option value="">اختر القسم أولاً</option>';
+      levelSelect.disabled = true;
     }
 
     if (sessionInfoContainer) {
-      sessionInfoContainer.textContent = 'أدخل بياناتك ثم اضغط تسجيل الحضور.';
+      sessionInfoContainer.textContent = departments.length
+        ? 'أدخل بياناتك ثم اضغط تسجيل الحضور.'
+        : 'لم يتم إعداد الأقسام بعد. تواصل مع الإدارة.';
+    }
+  }
+
+  async function loadLevelOptions(departmentId) {
+    const levelsResult = await studentService.getLevels({ departmentId, active: true });
+    const levels = Array.isArray(levelsResult?.data) ? levelsResult.data : [];
+    if (levelSelect) {
+      levelSelect.innerHTML = '<option value="">اختر الفرقة</option>' + levels.map((level) => `<option value="${level.level_name}">${level.level_name}</option>`).join('');
+      levelSelect.disabled = levels.length === 0;
     }
   }
 
@@ -146,7 +158,13 @@ export async function initStudentPage() {
         const departmentInput = document.querySelector('#department');
         const levelInput = document.querySelector('#level');
         if (nameInput) nameInput.value = student.name || '';
-        if (departmentInput) departmentInput.value = student.department || '';
+        if (departmentInput) {
+          const option = Array.from(departmentInput.options).find((opt) => opt.text === student.department);
+          if (option) {
+            departmentInput.value = option.value;
+            await loadLevelOptions(option.value);
+          }
+        }
         if (levelInput) levelInput.value = student.level || '';
         await loadStudentSessionAndStats(student.studentId, student);
       }
@@ -155,17 +173,45 @@ export async function initStudentPage() {
     return null;
   }
 
+  let currentLecture = null;
+
   async function initializeStudentForm() {
     await loadDropdownOptions();
+
+    const activeSessionRes = await sessionService.getActiveSession();
+    if (activeSessionRes?.status === 'success' && activeSessionRes.data) {
+      currentLecture = activeSessionRes.data;
+      if (sessionInfoContainer) {
+        const subject = currentLecture.subject_name || currentLecture.session_id || 'المحاضرة الحالية';
+        sessionInfoContainer.textContent = `المحاضرة الحالية: ${subject}. اختر بياناتك ثم اضغط تسجيل الحضور.`;
+      }
+    } else if (sessionInfoContainer) {
+      sessionInfoContainer.textContent = 'لا توجد محاضرة حالية. تواصل مع الإدارة.';
+      form.querySelector('button[type="submit"]').disabled = true;
+    }
 
     const savedToken = localStorage.getItem('student_session_token');
     if (savedToken) {
       const sessionRes = await studentService.getStudentSession({ sessionToken: savedToken });
-      if (sessionRes?.status === 'success') {
-        const sessionData = sessionRes.data;
-        await restoreSessionFromStudentId(sessionData.student_id);
+      if (sessionRes?.status === 'success' && sessionRes.data) {
+        localStorage.setItem('student_session_token', sessionRes.data.session_token || sessionRes.data.sessionToken || '');
+        window.location.href = 'dashboard.html';
+        return;
       }
+      localStorage.removeItem('student_session_token');
     }
+  }
+
+  if (departmentSelect) {
+    departmentSelect.addEventListener('change', async () => {
+      const departmentId = departmentSelect.value;
+      if (departmentId) {
+        await loadLevelOptions(departmentId);
+      } else if (levelSelect) {
+        levelSelect.innerHTML = '<option value="">اختر القسم أولاً</option>';
+        levelSelect.disabled = true;
+      }
+    });
   }
 
   form.addEventListener('submit', async (event) => {
@@ -193,6 +239,25 @@ export async function initStudentPage() {
       return;
     }
 
+    if (!student.department || !student.level) {
+      notifications.loading(false);
+      notifications.error('يرجى اختيار القسم والمستوى من القائمة الثابتة.');
+      return;
+    }
+
+    const existingSessionRes = await studentService.getStudentSession({ studentId: student.studentId });
+    if (existingSessionRes?.status === 'success' && existingSessionRes.data) {
+      localStorage.setItem('student_session_token', existingSessionRes.data.session_token || existingSessionRes.data.sessionToken || '');
+      window.location.href = 'dashboard.html';
+      return;
+    }
+
+    if (!currentLecture) {
+      notifications.loading(false);
+      notifications.error('لا توجد محاضرة حالية. تواصل مع الإدارة.');
+      return;
+    }
+
     let currentLocation;
     try {
       currentLocation = await locationModule.getCurrentLocation();
@@ -203,23 +268,13 @@ export async function initStudentPage() {
       return;
     }
 
-    const locationSettingsResult = await settingsService.getLocationSettings();
-    const locationSettings = locationSettingsResult?.status === 'success' ? locationSettingsResult.data : null;
+    const lectureLatitude = Number(currentLecture.latitude || 0);
+    const lectureLongitude = Number(currentLecture.longitude || 0);
+    const gpsRadius = Number(currentLecture.radius || 300);
 
-    if (!locationSettings) {
+    if (!Number.isFinite(lectureLatitude) || !Number.isFinite(lectureLongitude) || lectureLatitude === 0 || lectureLongitude === 0) {
       notifications.loading(false);
-      notifications.error('تعذر تحميل إعدادات الموقع. تواصل مع الإدارة.');
-      showError();
-      return;
-    }
-
-    const universityLatitude = Number(locationSettings.university_latitude || locationSettings.latitude || 0);
-    const universityLongitude = Number(locationSettings.university_longitude || locationSettings.longitude || 0);
-    const gpsRadius = Number(locationSettings.gps_radius || locationSettings.radius || 300);
-
-    if (!Number.isFinite(universityLatitude) || !Number.isFinite(universityLongitude) || universityLatitude === 0 || universityLongitude === 0) {
-      notifications.loading(false);
-      notifications.error('إعدادات موقع الجامعة غير مكتملة. تواصل مع الإدارة.');
+      notifications.error('إعدادات مكان المحاضرة غير مكتملة. تواصل مع الإدارة.');
       showError();
       return;
     }
@@ -227,8 +282,8 @@ export async function initStudentPage() {
     const radiusCheck = locationModule.isInsideRadius(
       currentLocation,
       {
-        latitude: universityLatitude,
-        longitude: universityLongitude
+        latitude: lectureLatitude,
+        longitude: lectureLongitude
       },
       gpsRadius
     );
@@ -243,9 +298,14 @@ export async function initStudentPage() {
     const fingerprint = getDeviceFingerprint();
     const publicIp = await getPublicIp();
 
+    const selectedDepartmentOption = departmentSelect?.selectedOptions?.[0];
+    const departmentName = selectedDepartmentOption?.dataset?.name || departmentSelect?.value || '';
     const loginPayload = {
       studentId: student.studentId,
       name: student.name,
+      department: departmentName,
+      level: student.level,
+      sessionId: currentLecture.session_id || '',
       latitude: currentLocation.latitude,
       longitude: currentLocation.longitude,
       deviceFingerprint: fingerprint,
@@ -312,6 +372,13 @@ export async function initStudentPage() {
       }
       try {
         notifications.loading(true, 'جاري البحث عن الطالب...');
+        const sessionResponse = await studentService.getStudentSession({ studentId: sid });
+        if (sessionResponse?.status === 'success' && sessionResponse.data) {
+          localStorage.setItem('student_session_token', sessionResponse.data.session_token || sessionResponse.data.sessionToken || '');
+          window.location.href = 'dashboard.html';
+          return;
+        }
+
         const res = await studentService.getStudent(sid);
         if (res && res.status === 'success' && studentCard) {
           const st = res.data;
@@ -324,7 +391,13 @@ export async function initStudentPage() {
               const departmentInput = document.querySelector('#department');
               const levelInput = document.querySelector('#level');
               if (nameInput) nameInput.value = st.name || '';
-              if (departmentInput) departmentInput.value = st.department || '';
+              if (departmentInput) {
+                const option = Array.from(departmentInput.options).find((opt) => opt.text === st.department);
+                if (option) {
+                  departmentInput.value = option.value;
+                  await loadLevelOptions(option.value);
+                }
+              }
               if (levelInput) levelInput.value = st.level || '';
               await loadStudentSessionAndStats(st.studentId, st);
             });
