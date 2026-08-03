@@ -1,8 +1,8 @@
-import { post } from './apiAdapter.js';
+import { get, post } from './apiAdapter.js';
 
 export const authService = {
   async login(credentials) {
-    return post('login', credentials);
+    return get('login', credentials);
   },
   async logout() {
     return post('logout');

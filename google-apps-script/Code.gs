@@ -64,8 +64,17 @@ function getRecordValue(record, key) {
   return getRowValue(record, key);
 }
 
+function setCorsHeaders(output) {
+  output.setHeader('Access-Control-Allow-Origin', '*');
+  output.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  output.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  return output;
+}
+
 function jsonResponse(payload, statusCode = 200) {
-  return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
+  const output = ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
+  output.setResponseCode(statusCode);
+  return setCorsHeaders(output);
 }
 
 function createSuccess(data, meta = null) {
@@ -204,6 +213,9 @@ function doGet(e) {
   const route = parseAction(action);
 
   try {
+    if (route.resource === 'login') {
+      return jsonResponse(handleLogin(params));
+    }
     if (route.resource === 'settings') {
       return jsonResponse(createSuccess(handleGetSettings(params)));
     }
@@ -319,9 +331,27 @@ function handleDashboardTrend(params) {
   return createSuccess({ items });
 }
 
+function parseRequestBody(e) {
+  if (e.postData && e.postData.type && e.postData.type.indexOf('application/json') !== -1) {
+    try {
+      return JSON.parse(e.postData.contents || '{}');
+    } catch (err) {
+      return {};
+    }
+  }
+
+  const body = {};
+  Object.keys(e.parameter || {}).forEach((key) => {
+    if (key !== 'action') {
+      body[key] = e.parameter[key];
+    }
+  });
+  return body;
+}
+
 function doPost(e) {
   const action = e.parameter.action || 'login';
-  const body = e.postData ? JSON.parse(e.postData.contents || '{}') : {};
+  const body = parseRequestBody(e);
   const route = parseAction(action);
 
   try {

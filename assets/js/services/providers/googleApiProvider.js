@@ -21,16 +21,21 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
     ? `${buildUrl(endpoint)}&${buildQueryString(params)}`
     : buildUrl(endpoint);
 
-  const options = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers
-    }
+  const requestHeaders = {
+    ...headers
   };
 
+  const options = { method, headers: requestHeaders };
+
   if (body && method !== 'GET') {
-    options.body = JSON.stringify(body);
+    if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
+      requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+      options.body = new URLSearchParams(body).toString();
+    } else if (requestHeaders['Content-Type'] === 'application/json' || requestHeaders['content-type'] === 'application/json') {
+      options.body = JSON.stringify(body);
+    } else {
+      options.body = new URLSearchParams(body).toString();
+    }
   }
 
   const response = await fetch(url, options);
