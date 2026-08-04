@@ -208,9 +208,19 @@ function handleStudentLogin(body) {
   }
 
   const students = getEntityRows(SHEET_CONFIG.students, {});
-  const existingStudent = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
-  if (!existingStudent) {
-    return createError('not_found', 'Student not found', { studentId });
+  let student = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
+  if (!student) {
+    student = {
+      id: generateId('student'),
+      student_id: studentId,
+      name: studentName,
+      department: departmentName,
+      level: levelName,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    appendRow(SHEET_CONFIG.students, student);
   }
 
   const existingByStudent = findStudentSessionByStudentId(studentId);
