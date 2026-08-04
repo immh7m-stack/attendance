@@ -68,7 +68,7 @@ async function initHomePage() {
 
     if (!radiusCheck.inside) {
       if (homeStatus) {
-        homeStatus.textContent = `أنت خارج نطاق الجامعة. المسافة ${Math.round(radiusCheck.distance)} متر.`;
+        homeStatus.textContent = `أنت خارج النطاق الحالي. المسافة الحالية: ${Math.round(radiusCheck.distance)} متر، والحد المسموح: ${Math.round(targetRadius)} متر.`;
         homeStatus.classList.add('error');
       }
       return;

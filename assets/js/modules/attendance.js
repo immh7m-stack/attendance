@@ -265,6 +265,17 @@ export async function initStudentPage() {
   async function initializeStudentForm() {
     await loadDropdownOptions();
 
+    const savedToken = localStorage.getItem('student_session_token');
+    if (savedToken) {
+      const sessionRes = await studentService.getStudentSession({ sessionToken: savedToken });
+      if (sessionRes?.status === 'success' && sessionRes.data) {
+        localStorage.setItem('student_session_token', sessionRes.data.session_token || sessionRes.data.sessionToken || '');
+        window.location.href = 'dashboard.html';
+        return;
+      }
+      localStorage.removeItem('student_session_token');
+    }
+
     const activeSessionRes = await sessionService.getActiveSession();
     if (activeSessionRes?.status === 'success' && activeSessionRes.data) {
       currentLecture = activeSessionRes.data;
@@ -280,17 +291,6 @@ export async function initStudentPage() {
     const canProceed = await checkLocation();
     if (!canProceed) {
       return;
-    }
-
-    const savedToken = localStorage.getItem('student_session_token');
-    if (savedToken) {
-      const sessionRes = await studentService.getStudentSession({ sessionToken: savedToken });
-      if (sessionRes?.status === 'success' && sessionRes.data) {
-        localStorage.setItem('student_session_token', sessionRes.data.session_token || sessionRes.data.sessionToken || '');
-        window.location.href = 'dashboard.html';
-        return;
-      }
-      localStorage.removeItem('student_session_token');
     }
   }
 

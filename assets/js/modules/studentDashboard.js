@@ -23,6 +23,8 @@ function createDashboardContent(student, session, stats, attendanceRecords) {
           <p>رقم الطالب: ${student.studentId}</p>
           <p>القسم: ${student.department || '-'}</p>
           <p>المستوى: ${student.level || '-'}</p>
+          <p>تاريخ الدخول: ${session?.login_date || '-'} ${session?.login_time || ''}</p>
+          <p>تنتهي الجلسة: ${session?.expires_at || '-'}</p>
         </div>
       </div>
       <div class="student-stats-grid">
