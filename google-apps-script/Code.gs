@@ -151,14 +151,24 @@ function handleAuthLogin(body) {
 function handleStudentLogin(body) {
   const studentId = String(body.studentId || body.student_id || '').trim();
   const studentName = String(body.name || body.studentName || body.student_name || '').trim();
+  const departmentName = String(body.department || '').trim();
+  const levelName = String(body.level || '').trim();
   const latitude = String(body.latitude || '').trim();
   const longitude = String(body.longitude || '').trim();
   const deviceFingerprint = String(body.deviceFingerprint || body.device_fingerprint || '').trim();
   const publicIp = String(body.publicIp || body.public_ip || '').trim();
   const userAgent = String(body.userAgent || body.user_agent || body.ua || '').trim();
 
-  if (!studentId || !studentName || !latitude || !longitude || !deviceFingerprint) {
-    return createError('validation_error', 'Missing required student login fields', { studentId: 'required', studentName: 'required', latitude: 'required', longitude: 'required', deviceFingerprint: 'required' });
+  if (!studentId || !studentName || !departmentName || !levelName || !latitude || !longitude || !deviceFingerprint) {
+    return createError('validation_error', 'Missing required student login fields', {
+      studentId: 'required',
+      studentName: 'required',
+      department: 'required',
+      level: 'required',
+      latitude: 'required',
+      longitude: 'required',
+      deviceFingerprint: 'required'
+    });
   }
 
   const locationSettings = getLocationSettings();
@@ -200,29 +210,9 @@ function handleStudentLogin(body) {
   }
 
   const students = getEntityRows(SHEET_CONFIG.students, {});
-  let existingStudent = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
-  const studentFields = {
-    student_id: studentId,
-    name: studentName,
-    department: departmentName,
-    level: levelName,
-    updated_at: new Date().toISOString()
-  };
-
+  const existingStudent = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
   if (!existingStudent) {
-    existingStudent = Object.assign({}, studentFields, {
-      id: generateId('student'),
-      status: 'active',
-      created_at: new Date().toISOString()
-    });
-    appendRow(SHEET_CONFIG.students, existingStudent);
-  } else {
-    const updatedStudent = Object.assign({}, existingStudent, studentFields);
-    if (!getRowValue(existingStudent, 'status')) {
-      updatedStudent.status = 'active';
-    }
-    updateRow(SHEET_CONFIG.students, existingStudent.__rowNum, updatedStudent);
-    existingStudent = updatedStudent;
+    return createError('not_found', 'Student not found', { studentId });
   }
 
   const existingByStudent = findStudentSessionByStudentId(studentId);
