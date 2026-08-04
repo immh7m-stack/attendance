@@ -23,6 +23,8 @@ export function createSidebar(active = 'dashboard') {
     <a href="dashboard.html" class="${active === 'dashboard' ? 'active' : ''}">لوحة التحكم</a>
     <a href="students.html" class="${active === 'students' ? 'active' : ''}">الطلاب</a>
     <a href="sessions.html" class="${active === 'sessions' ? 'active' : ''}">الجلسات</a>
+    <a href="departments.html" class="${active === 'departments' ? 'active' : ''}">الأقسام</a>
+    <a href="levels.html" class="${active === 'levels' ? 'active' : ''}">الفرق</a>
     <a href="attendance.html" class="${active === 'attendance' ? 'active' : ''}">الحضور</a>
     <a href="reports.html" class="${active === 'reports' ? 'active' : ''}">التقارير</a>
     <a href="settings.html" class="${active === 'settings' ? 'active' : ''}">الإعدادات</a>

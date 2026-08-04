@@ -31,8 +31,26 @@ export const studentService = {
   async getDepartments(params = {}) {
     return get('departments', params);
   },
+  async createDepartment(data) {
+    return post('departments', data);
+  },
+  async updateDepartment(id, data) {
+    return post(`departments/${encodeURIComponent(id)}`, data);
+  },
+  async deleteDepartment(id) {
+    return post(`departments/${encodeURIComponent(id)}/delete`);
+  },
   async getLevels(params = {}) {
     return get('levels', params);
+  },
+  async createLevel(data) {
+    return post('levels', data);
+  },
+  async updateLevel(id, data) {
+    return post(`levels/${encodeURIComponent(id)}`, data);
+  },
+  async deleteLevel(id) {
+    return post(`levels/${encodeURIComponent(id)}/delete`);
   },
   async getStudentAttendance(params = {}) {
     return get('student/attendance', params);

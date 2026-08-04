@@ -6,6 +6,8 @@ function getPageMeta(page) {
     students: { title: 'الطلاب', subtitle: 'إدارة الطلاب ومتابعة الحالة', breadcrumb: ['الرئيسية', 'الطلاب'] },
     sessions: { title: 'الجلسات', subtitle: 'إدارة الجلسات وتفعيلها', breadcrumb: ['الرئيسية', 'الجلسات'] },
     attendance: { title: 'الحضور', subtitle: 'سجلات الحضور والتتبع', breadcrumb: ['الرئيسية', 'الحضور'] },
+    departments: { title: 'الأقسام', subtitle: 'إدارة الأقسام في النظام', breadcrumb: ['الرئيسية', 'الأقسام'] },
+    levels: { title: 'الفرق', subtitle: 'إدارة الفرق وربطها بالأقسام', breadcrumb: ['الرئيسية', 'الفرق'] },
     reports: { title: 'التقارير', subtitle: 'تقارير يومية وأسبوعية وشهرية', breadcrumb: ['الرئيسية', 'التقارير'] },
     settings: { title: 'الإعدادات', subtitle: 'ضبط النظام والخيارات', breadcrumb: ['الرئيسية', 'الإعدادات'] },
     logs: { title: 'السجلات', subtitle: 'سجل الأنشطة والنظام', breadcrumb: ['الرئيسية', 'السجلات'] },

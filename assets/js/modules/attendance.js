@@ -137,7 +137,7 @@ export async function initStudentPage() {
   }
 
   async function loadLevelOptions(departmentId) {
-    const levelsResult = await studentService.getLevels({ departmentId, active: true });
+    const levelsResult = await studentService.getLevels({ department_id: departmentId, active: true });
     const levels = Array.isArray(levelsResult?.data) ? levelsResult.data : [];
     if (levelSelect) {
       levelSelect.innerHTML = '<option value="">اختر الفرقة</option>' + levels.map((level) => `<option value="${level.level_name}">${level.level_name}</option>`).join('');

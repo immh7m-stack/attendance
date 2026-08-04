@@ -13,6 +13,8 @@ import * as reports from './modules/reports.js';
 import * as settings from './modules/settings.js';
 import * as logs from './modules/logs.js';
 import * as profile from './modules/profile.js';
+import * as departments from './modules/departments.js';
+import * as levels from './modules/levels.js';
 import * as studentDashboard from './modules/studentDashboard.js';
 import { authService } from './services/authService.js';
 import { renderAdminPage } from './modules/adminPage.js';
@@ -41,7 +43,7 @@ const requireAdminAuth = () => {
 
 const isAdminRoute = () => {
   const pathname = window.location.pathname || '';
-  return pathname.includes('/admin/') || pageId.startsWith('admin-') || ['students', 'sessions', 'attendance', 'reports', 'settings', 'logs', 'profile'].includes(pageId);
+  return pathname.includes('/admin/') || pageId.startsWith('admin-') || ['students', 'sessions', 'attendance', 'departments', 'levels', 'reports', 'settings', 'logs', 'profile'].includes(pageId);
 };
 
 const initPage = () => {
@@ -82,6 +84,18 @@ const initPage = () => {
       attendanceAdmin.initAttendancePage(container);
       break;
     }
+    case 'departments': {
+      if (!requireAdminAuth()) return;
+      const container = renderAdminPage('departments');
+      departments.initDepartmentsPage(container);
+      break;
+    }
+    case 'levels': {
+      if (!requireAdminAuth()) return;
+      const container = renderAdminPage('levels');
+      levels.initLevelsPage(container);
+      break;
+    }
     case 'reports': {
       if (!requireAdminAuth()) return;
       const container = renderAdminPage('reports');
@@ -120,4 +134,4 @@ const initPage = () => {
 
 document.addEventListener('DOMContentLoaded', initPage);
 
-export { APP_CONFIG, router, notifications, validation, locationModule, attendance, auth, dashboard, students, sessions, attendanceAdmin, reports, settings, logs, profile };
+export { APP_CONFIG, router, notifications, validation, locationModule, attendance, auth, dashboard, students, sessions, attendanceAdmin, departments, levels, reports, settings, logs, profile };
