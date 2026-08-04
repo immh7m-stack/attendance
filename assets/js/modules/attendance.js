@@ -212,11 +212,20 @@ export async function initStudentPage() {
     }
   }
 
+  function isStoredGateValidForLecture(storedGate, lecture) {
+    if (!storedGate || !storedGate.inside || !lecture) return false;
+
+    const storedSessionId = String(storedGate.sessionId || storedGate.session_id || '').trim();
+    const lectureSessionId = String(lecture.session_id || lecture.sessionId || '').trim();
+
+    return storedSessionId && lectureSessionId ? storedSessionId === lectureSessionId : false;
+  }
+
   async function checkLocation() {
     const submitButton = form.querySelector('button[type="submit"]');
     const storedGate = getStoredLocationGate();
 
-    if (storedGate) {
+    if (storedGate && isStoredGateValidForLecture(storedGate, currentLecture)) {
       checkedLocation = {
         latitude: storedGate.latitude,
         longitude: storedGate.longitude,
@@ -234,7 +243,24 @@ export async function initStudentPage() {
       return true;
     }
 
-    const locationSettingsRes = await settingsService.getLocationSettings();
+    if (storedGate && !isStoredGateValidForLecture(storedGate, currentLecture)) {
+      localStorage.removeItem(LOCATION_GATE_KEY);
+    }
+
+    if (!currentLecture) {
+      if (sessionInfoContainer) {
+        sessionInfoContainer.textContent = 'لا توجد محاضرة حالية. تواصل مع الإدارة.';
+      }
+      locationModule.showLocationStatus('لا توجد محاضرة حالية للتحقق منها.', false);
+      if (submitButton) submitButton.disabled = true;
+      form.style.display = 'none';
+      return false;
+    }
+
+    const [locationSettingsRes, currentLocation] = await Promise.all([
+      settingsService.getLocationSettings(),
+      locationModule.getCurrentLocation()
+    ]);
     const locationSettings = locationSettingsRes?.status === 'success' ? locationSettingsRes.data : null;
 
     const settingsLatitude = Number(locationSettings?.university_latitude || locationSettings?.latitude || 0);
@@ -253,7 +279,7 @@ export async function initStudentPage() {
 
     if (!Number.isFinite(targetLatitude) || !Number.isFinite(targetLongitude) || targetLatitude === 0 || targetLongitude === 0) {
       if (sessionInfoContainer) {
-        sessionInfoContainer.textContent = 'إعدادات مكان المحاضرة غير مكتملة. تواصل مع الإدارة.';
+        sessionInfoContainer.textContent = 'إعدادات مكان المحاضرة غير مكتلمة. تواصل مع الإدارة.';
       }
       locationModule.showLocationStatus('إعدادات موقع المحاضرة غير مكتملة.', false);
       if (submitButton) submitButton.disabled = true;
@@ -262,7 +288,7 @@ export async function initStudentPage() {
     }
 
     try {
-      checkedLocation = await locationModule.getCurrentLocation();
+      checkedLocation = currentLocation;
       const radiusCheck = locationModule.isInsideRadius(
         checkedLocation,
         { latitude: targetLatitude, longitude: targetLongitude },
@@ -299,8 +325,6 @@ export async function initStudentPage() {
   }
 
   async function initializeStudentForm() {
-    await loadDropdownOptions();
-
     const savedToken = localStorage.getItem('student_session_token');
     if (savedToken) {
       const sessionRes = await studentService.getStudentSession({ sessionToken: savedToken });
@@ -311,6 +335,8 @@ export async function initStudentPage() {
       }
       localStorage.removeItem('student_session_token');
     }
+
+    await loadDropdownOptions();
 
     const activeSessionRes = await sessionService.getActiveSession();
     if (activeSessionRes?.status === 'success' && activeSessionRes.data) {
