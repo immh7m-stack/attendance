@@ -35,11 +35,24 @@ function normalizeSession(session = {}) {
   };
 }
 
+function getEgyptDateString(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
 function formatDatePart(value) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(date);
+}
+
+function hasCheckedInToday(attendanceRecords = [], todayDate) {
+  return attendanceRecords.some((record) => String(record.date) === todayDate);
 }
 
 function formatTimePart(value) {
@@ -71,7 +84,7 @@ function attendanceRow(item) {
   `;
 }
 
-function createDashboardContent(student, session, stats, attendanceRecords) {
+function createDashboardContent(student, session, stats, attendanceRecords, alreadyCheckedInToday) {
   const normalizedStudent = normalizeStudent(student);
   const normalizedSession = normalizeSession(session);
   const attendanceRows = attendanceRecords.map(attendanceRow).join('');
@@ -125,10 +138,14 @@ function createDashboardContent(student, session, stats, attendanceRecords) {
       </div>
 
       <div class="sd-action">
-        <button id="checkInBtn" class="btn-checkin">
-          <span class="pin"></span>
-          تسجيل الحضور الآن
-        </button>
+        ${alreadyCheckedInToday ? `
+          <div class="sd-empty">تم تسجيل حضورك لهذا اليوم بالفعل. لا يمكن تسجيل حضور آخر في نفس الجلسة.</div>
+        ` : `
+          <button id="checkInBtn" class="btn-checkin">
+            <span class="pin"></span>
+            تسجيل الحضور الآن
+          </button>
+        `}
       </div>
 
       <div class="sd-log-card">
@@ -188,7 +205,12 @@ export async function initStudentDashboardPage() {
   const stats = statsRes?.status === 'success' ? statsRes.data : { totalLectures: 0, present: 0, absent: 0, attendanceRate: 0 };
   const attendanceRecords = attendanceRes?.status === 'success' ? attendanceRes.data : [];
 
-  container.innerHTML = createDashboardContent(student, session, stats, attendanceRecords);
+  const todayDate = getEgyptDateString(new Date());
+  const alreadyCheckedInToday = attendanceRecords.some((record) =>
+    String(record.date) === todayDate && String(record.session_id || record.sessionId || record.sessionId || '') === String(session.session_id || session.sessionId || '')
+  );
+
+  container.innerHTML = createDashboardContent(student, session, stats, attendanceRecords, alreadyCheckedInToday);
 
   const checkInBtn = document.querySelector('#checkInBtn');
   if (checkInBtn) {
