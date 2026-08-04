@@ -116,6 +116,7 @@ function openLevelModal(container, level = null) {
     const raw = { department_id: departmentId, level_name: levelName, active };
     const payload = buildPayload(raw);
 
+    console.log('create/update level payload:', payload);
     let result;
     if (level && level.id) {
       result = await studentService.updateLevel(level.id, payload);

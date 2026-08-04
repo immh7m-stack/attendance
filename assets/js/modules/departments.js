@@ -102,6 +102,7 @@ function openDepartmentModal(container, department = null) {
     const raw = { department_name: name, active };
     const payload = buildPayload(raw);
 
+    console.log('create/update department payload:', payload);
     let result;
     if (department && department.id) {
       result = await studentService.updateDepartment(department.id, payload);
