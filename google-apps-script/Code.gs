@@ -341,10 +341,11 @@ function handleGetLocationSettings() {
   });
 }
 
-function jsonResponse(payload, callback) {
-  const body = callback ? `${callback}(${JSON.stringify(payload)});` : JSON.stringify(payload);
-  const output = ContentService.createTextOutput(body).setMimeType(callback ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
-  return output;
+function jsonResponse(payload, callbackOrStatusCode = '', statusCode = null) {
+  const callback = typeof callbackOrStatusCode === 'string' ? callbackOrStatusCode : '';
+  const useCallback = typeof callback === 'string' && callback.trim();
+  const body = useCallback ? `${callback}(${JSON.stringify(payload)});` : JSON.stringify(payload);
+  return ContentService.createTextOutput(body).setMimeType(useCallback ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
 }
 
 function createSuccess(data, meta = null) {
