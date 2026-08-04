@@ -11,7 +11,8 @@ const SHEET_CONFIG = {
 };
 
 const SCRIPT_PROPERTY_SPREADSHEET_ID = 'SPREADSHEET_ID';
-const DEFAULT_SPREADSHEET_ID = '1yqhDccY21PtHKJdO3c9EXXsnRt6dlomMlWZ3WvBEpzo';
+// Updated to the actual spreadsheet used by this project.
+const DEFAULT_SPREADSHEET_ID = '1dOa6KqmoJ_2AYFBOcNhCgbuvKvSg4S-pH_T8O0TSpNQ';
 
 function getSpreadsheet() {
   const spreadsheetId = PropertiesService.getScriptProperties().getProperty(SCRIPT_PROPERTY_SPREADSHEET_ID) || DEFAULT_SPREADSHEET_ID;
