@@ -17,6 +17,8 @@ import * as departments from './modules/departments.js';
 import * as levels from './modules/levels.js';
 import * as studentDashboard from './modules/studentDashboard.js';
 import { authService } from './services/authService.js';
+import { settingsService } from './services/settingsService.js';
+import { sessionService } from './services/sessionService.js';
 import { renderAdminPage } from './modules/adminPage.js';
 
 const pageId = router.getCurrentPage();
@@ -26,12 +28,65 @@ const setGeneratedLinks = () => {
   if (studentLink) {
     studentLink.href = APP_CONFIG.studentUrl;
   }
-
-  const adminLink = document.querySelector('[data-route="admin"]');
-  if (adminLink) {
-    adminLink.href = APP_CONFIG.adminUrl;
-  }
 };
+
+async function initHomePage() {
+  const homeStatus = document.getElementById('homeStatus');
+  if (homeStatus) {
+    homeStatus.textContent = 'جارٍ التحقق من الموقع...';
+    homeStatus.classList.remove('error');
+    homeStatus.classList.remove('success');
+  }
+
+  try {
+    const [settingsRes, sessionRes] = await Promise.all([
+      settingsService.getLocationSettings(),
+      sessionService.getActiveSession()
+    ]);
+
+    const locationSettings = settingsRes?.status === 'success' ? settingsRes.data : {};
+    const activeSession = sessionRes?.status === 'success' ? sessionRes.data : null;
+
+    const targetLatitude = Number(activeSession?.latitude || locationSettings?.university_latitude || locationSettings?.latitude || 0);
+    const targetLongitude = Number(activeSession?.longitude || locationSettings?.university_longitude || locationSettings?.longitude || 0);
+    const targetRadius = Number(activeSession?.radius || locationSettings?.gps_radius || locationSettings?.radius || 300);
+
+    if (!Number.isFinite(targetLatitude) || !Number.isFinite(targetLongitude) || targetLatitude === 0 || targetLongitude === 0) {
+      if (homeStatus) {
+        homeStatus.textContent = 'إعدادات الموقع غير مكتملة. تواصل مع الإدارة.';
+        homeStatus.classList.add('error');
+      }
+      return;
+    }
+
+    const currentLocation = await locationModule.getCurrentLocation();
+    const radiusCheck = locationModule.isInsideRadius(
+      currentLocation,
+      { latitude: targetLatitude, longitude: targetLongitude },
+      targetRadius
+    );
+
+    if (!radiusCheck.inside) {
+      if (homeStatus) {
+        homeStatus.textContent = `أنت خارج نطاق الجامعة. المسافة ${Math.round(radiusCheck.distance)} متر.`;
+        homeStatus.classList.add('error');
+      }
+      return;
+    }
+
+    if (homeStatus) {
+      homeStatus.textContent = 'تم التحقق من الموقع. جاري تحويلك إلى نموذج الحضور...';
+      homeStatus.classList.add('success');
+    }
+
+    window.location.href = APP_CONFIG.studentUrl;
+  } catch (error) {
+    if (homeStatus) {
+      homeStatus.textContent = error?.message || 'تعذر الحصول على موقعك. حاول مرة أخرى.';
+      homeStatus.classList.add('error');
+    }
+  }
+}
 
 const requireAdminAuth = () => {
   if (!authService.isAuthenticated()) {
@@ -56,6 +111,7 @@ const initPage = () => {
 
   switch (pageId) {
     case 'home':
+      initHomePage();
       break;
     case 'admin-login':
       auth.initAuthPage();
