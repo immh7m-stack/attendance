@@ -19,9 +19,6 @@ function getBaseUrl() {
   if (APP_CONFIG.googleScriptUrl && isGoogleLibraryUrl(APP_CONFIG.googleScriptUrl)) {
     throw new Error('Google Apps Script URL is configured as a library/echo URL, not a deployed Web App exec URL. Update APP_CONFIG.googleScriptUrl in assets/js/config.js to the published exec URL.');
   }
-  if (APP_CONFIG.apiUrl) {
-    return APP_CONFIG.apiUrl;
-  }
   throw new Error('Google Apps Script URL is not configured. Set APP_CONFIG.googleScriptUrl to the deployed Web App URL in assets/js/config.js.');
 }
 
@@ -85,7 +82,13 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
     data = text ? JSON.parse(text) : null;
   } catch (error) {
     const snippet = String(text || '').slice(0, 300).replace(/\s+/g, ' ').trim();
-    console.error('Google API provider received non-JSON response', { url, status: response.status, body: snippet });
+    const contentType = response.headers.get('Content-Type') || '';
+    console.error('Google API provider received non-JSON response', { url, status: response.status, contentType, body: snippet });
+
+    if (contentType.includes('text/html') || snippet.startsWith('<')) {
+      throw new Error(`Google Apps Script deployment returned HTML/redirect before reaching doGet(). Verify that the Web App URL is correct and that the deployment is published for public access. Response status: ${response.status}.`);
+    }
+
     throw new Error(`Invalid JSON response from API${snippet ? `: ${snippet}` : ''}`);
   }
 
