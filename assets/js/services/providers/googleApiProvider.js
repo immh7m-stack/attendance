@@ -16,6 +16,16 @@ function buildQueryString(params) {
   return searchParams.toString();
 }
 
+function cleanBody(body) {
+  const cleaned = {};
+  Object.entries(body || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    if (typeof value === 'string' && value.trim() === '') return;
+    cleaned[key] = value;
+  });
+  return cleaned;
+}
+
 async function request(endpoint, { method = 'GET', body, params = {}, headers = {} } = {}) {
   const url = method === 'GET' && Object.keys(params).length
     ? `${buildUrl(endpoint)}&${buildQueryString(params)}`
@@ -28,12 +38,13 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
   const options = { method, headers: requestHeaders };
 
   if (body && method !== 'GET') {
+    const filteredBody = cleanBody(body);
     if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
-      options.body = new URLSearchParams(body).toString();
+      options.body = new URLSearchParams(filteredBody).toString();
     } else if (requestHeaders['Content-Type'] === 'application/json' || requestHeaders['content-type'] === 'application/json') {
-      options.body = JSON.stringify(body);
+      options.body = JSON.stringify(filteredBody);
     } else {
-      options.body = new URLSearchParams(body).toString();
+      options.body = new URLSearchParams(filteredBody).toString();
     }
   }
 

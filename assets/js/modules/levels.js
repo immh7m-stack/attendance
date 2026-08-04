@@ -91,19 +91,36 @@ function openLevelModal(container, level = null) {
   const closeModal = () => modal.remove();
   modal.querySelector('.close-modal')?.addEventListener('click', closeModal);
   cancelBtn?.addEventListener('click', closeModal);
+  function buildPayload(fields) {
+    const payload = {};
+    Object.keys(fields).forEach((k) => {
+      const v = fields[k];
+      if (v === undefined || v === null) return;
+      if (typeof v === 'string' && v.trim() === '') return;
+      payload[k] = v;
+    });
+    return payload;
+  }
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const departmentId = form.querySelector('#levelDepartmentId').value.trim();
     const levelName = form.querySelector('#levelName').value.trim();
     const active = form.querySelector('#levelActive').checked;
-    if (!departmentId || !levelName) return;
+
+    if (!departmentId || !levelName) {
+      // Only department and level name are required in the UI
+      return;
+    }
+
+    const raw = { department_id: departmentId, level_name: levelName, active };
+    const payload = buildPayload(raw);
 
     let result;
     if (level && level.id) {
-      result = await studentService.updateLevel(level.id, { department_id: departmentId, level_name: levelName, active });
+      result = await studentService.updateLevel(level.id, payload);
     } else {
-      result = await studentService.createLevel({ department_id: departmentId, level_name: levelName, active });
+      result = await studentService.createLevel(payload);
     }
 
     if (result?.status === 'success') {

@@ -78,18 +78,35 @@ function openDepartmentModal(container, department = null) {
   const closeModal = () => modal.remove();
   modal.querySelector('.close-modal')?.addEventListener('click', closeModal);
   cancelBtn?.addEventListener('click', closeModal);
+  function buildPayload(fields) {
+    const payload = {};
+    Object.keys(fields).forEach((k) => {
+      const v = fields[k];
+      if (v === undefined || v === null) return;
+      if (typeof v === 'string' && v.trim() === '') return;
+      payload[k] = v;
+    });
+    return payload;
+  }
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const name = form.querySelector('#departmentName').value.trim();
     const active = form.querySelector('#departmentActive').checked;
-    if (!name) return;
+
+    if (!name) {
+      // Only department name is required in the UI
+      return;
+    }
+
+    const raw = { department_name: name, active };
+    const payload = buildPayload(raw);
 
     let result;
     if (department && department.id) {
-      result = await studentService.updateDepartment(department.id, { department_name: name, active });
+      result = await studentService.updateDepartment(department.id, payload);
     } else {
-      result = await studentService.createDepartment({ department_name: name, active });
+      result = await studentService.createDepartment(payload);
     }
 
     if (result?.status === 'success') {
