@@ -111,14 +111,26 @@ export async function initStudentDashboardPage() {
           return;
         }
 
+        const now = new Date();
         const attendancePayload = {
           studentId: student.studentId,
           studentName: student.name,
           department: student.department,
           level: student.level,
           sessionToken: session.session_token || session.sessionToken || '',
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toTimeString().split(' ')[0],
+          date: new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Africa/Cairo',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          }).format(now),
+          time: new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Africa/Cairo',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          }).format(now),
           latitude: currentLocation.latitude,
           longitude: currentLocation.longitude,
           status: 'present'

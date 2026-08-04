@@ -9,6 +9,25 @@ import { sessionService } from '../services/sessionService.js';
 import { setState } from '../state.js';
 import { getDeviceFingerprint, getPublicIp } from './device.js';
 
+function getEgyptDateString(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
+function getEgyptTimeString(date = new Date()) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Cairo',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
 function renderStudentSummary(student, session, stats) {
   const summaryParts = [];
   if (student) {
@@ -79,8 +98,8 @@ export function generateAttendanceObject(student, session, location) {
     latitude: location.latitude,
     longitude: location.longitude,
     distance: location.distance,
-    date: now.toISOString().split('T')[0],
-    time: now.toTimeString().split(' ')[0],
+    date: getEgyptDateString(now),
+    time: getEgyptTimeString(now),
     status: 'present',
     device: navigator.platform,
     browser: navigator.userAgent,
@@ -174,6 +193,74 @@ export async function initStudentPage() {
   }
 
   let currentLecture = null;
+  let checkedLocation = null;
+  let locationGateAllowed = false;
+
+  async function checkLocation() {
+    const submitButton = form.querySelector('button[type="submit"]');
+    const locationSettingsRes = await settingsService.getLocationSettings();
+    const locationSettings = locationSettingsRes?.status === 'success' ? locationSettingsRes.data : null;
+
+    const settingsLatitude = Number(locationSettings?.university_latitude || locationSettings?.latitude || 0);
+    const settingsLongitude = Number(locationSettings?.university_longitude || locationSettings?.longitude || 0);
+    const settingsRadius = Number(locationSettings?.gps_radius || locationSettings?.radius || 300);
+
+    let targetLatitude = settingsLatitude;
+    let targetLongitude = settingsLongitude;
+    let targetRadius = settingsRadius;
+
+    if (currentLecture) {
+      targetLatitude = Number(currentLecture.latitude || settingsLatitude || 0);
+      targetLongitude = Number(currentLecture.longitude || settingsLongitude || 0);
+      targetRadius = Number(currentLecture.radius || settingsRadius || 300);
+    }
+
+    if (!Number.isFinite(targetLatitude) || !Number.isFinite(targetLongitude) || targetLatitude === 0 || targetLongitude === 0) {
+      if (sessionInfoContainer) {
+        sessionInfoContainer.textContent = 'إعدادات مكان المحاضرة غير مكتملة. تواصل مع الإدارة.';
+      }
+      locationModule.showLocationStatus('إعدادات موقع المحاضرة غير مكتملة.', false);
+      if (submitButton) submitButton.disabled = true;
+      form.style.display = 'none';
+      return false;
+    }
+
+    try {
+      checkedLocation = await locationModule.getCurrentLocation();
+      const radiusCheck = locationModule.isInsideRadius(
+        checkedLocation,
+        { latitude: targetLatitude, longitude: targetLongitude },
+        targetRadius
+      );
+
+      locationGateAllowed = radiusCheck.inside;
+      if (sessionInfoContainer) {
+        sessionInfoContainer.textContent = locationGateAllowed
+          ? 'تم التحقق من الموقع. يمكنك الآن إدخال بياناتك وإرسال الحضور.'
+          : 'أنت خارج نطاق الجامعة. لا يمكن تسجيل الحضور من هذا الموقع.';
+      }
+
+      locationModule.showLocationStatus(
+        locationGateAllowed
+          ? 'تم التحقق من الموقع داخل النطاق.'
+          : `أنت خارج نطاق الجامعة. المسافة ${Math.round(radiusCheck.distance)} متر.`,
+        locationGateAllowed
+      );
+
+      if (submitButton) submitButton.disabled = !locationGateAllowed;
+      form.style.display = locationGateAllowed ? 'grid' : 'none';
+      return locationGateAllowed;
+    } catch (error) {
+      locationGateAllowed = false;
+      if (sessionInfoContainer) {
+        sessionInfoContainer.textContent = error?.message || 'تعذر الحصول على موقعك.';
+      }
+      locationModule.showLocationStatus(error?.message || 'تعذر الحصول على موقعك.', false);
+      if (submitButton) submitButton.disabled = true;
+      form.style.display = 'none';
+      return false;
+    }
+  }
 
   async function initializeStudentForm() {
     await loadDropdownOptions();
@@ -183,11 +270,16 @@ export async function initStudentPage() {
       currentLecture = activeSessionRes.data;
       if (sessionInfoContainer) {
         const subject = currentLecture.subject_name || currentLecture.session_id || 'المحاضرة الحالية';
-        sessionInfoContainer.textContent = `المحاضرة الحالية: ${subject}. اختر بياناتك ثم اضغط تسجيل الحضور.`;
+        sessionInfoContainer.textContent = `المحاضرة الحالية: ${subject}. جارٍ التحقق من الموقع...`;
       }
     } else if (sessionInfoContainer) {
       sessionInfoContainer.textContent = 'لا توجد محاضرة حالية. تواصل مع الإدارة.';
       form.querySelector('button[type="submit"]').disabled = true;
+    }
+
+    const canProceed = await checkLocation();
+    if (!canProceed) {
+      return;
     }
 
     const savedToken = localStorage.getItem('student_session_token');
@@ -258,13 +350,10 @@ export async function initStudentPage() {
       return;
     }
 
-    let currentLocation;
-    try {
-      currentLocation = await locationModule.getCurrentLocation();
-      locationModule.showLocationStatus('تم التحقق من الموقع.', true);
-    } catch (error) {
+    const currentLocation = checkedLocation || null;
+    if (!currentLocation) {
       notifications.loading(false);
-      showError();
+      showError('تعذر التحقق من موقعك. حاول مرة أخرى.');
       return;
     }
 

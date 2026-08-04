@@ -75,7 +75,7 @@ function parseBoolean(value) {
 }
 
 function getTodayDate() {
-  return new Date().toISOString().slice(0, 10);
+  return Utilities.formatDate(new Date(), 'Africa/Cairo', 'yyyy-MM-dd');
 }
 
 function getLocationSettings() {
@@ -253,7 +253,7 @@ function handleStudentLogin(body) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + (Number(locationSettings.session_duration_hours || 24) * 3600000)).toISOString();
   const loginDate = getTodayDate();
-  const loginTime = now.toTimeString().split(' ')[0];
+  const loginTime = Utilities.formatDate(now, 'Africa/Cairo', 'HH:mm:ss');
 
   const session = {
     id: generateId('student_session_record'),
