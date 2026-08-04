@@ -1,7 +1,22 @@
 import { APP_CONFIG } from '../../config.js';
 
+function isGoogleScriptUrlConfigured(url) {
+  if (!url) return false;
+  return String(url).includes('script.google.com/macros/s/') && !url.includes('<DEPLOY_ID>') && !url.includes('placeholder');
+}
+
+function getBaseUrl() {
+  if (isGoogleScriptUrlConfigured(APP_CONFIG.googleScriptUrl)) {
+    return APP_CONFIG.googleScriptUrl;
+  }
+  if (APP_CONFIG.apiUrl) {
+    return APP_CONFIG.apiUrl;
+  }
+  throw new Error('Google Apps Script URL is not configured. Set APP_CONFIG.googleScriptUrl to the deployed Web App URL in assets/js/config.js.');
+}
+
 function buildUrl(endpoint) {
-  const url = APP_CONFIG.googleScriptUrl || APP_CONFIG.apiUrl;
+  const url = getBaseUrl();
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}action=${encodeURIComponent(endpoint)}`;
 }
@@ -55,13 +70,18 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
   const response = await fetch(url, options);
   const text = await response.text();
   let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch (error) {
-    throw new Error('Invalid JSON response from API');
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (error) {
+    const snippet = String(text || '').slice(0, 300).replace(/\s+/g, ' ').trim();
+    throw new Error(`Invalid JSON response from API${snippet ? `: ${snippet}` : ''}`);
   }
 
   if (!response.ok) {
     const message = data?.error?.message || response.statusText || 'Request failed';
-    throw new Error(message);
+    const snippet = String(text || '').slice(0, 300).replace(/\s+/g, ' ').trim();
+    throw new Error(`${message} (status ${response.status})${snippet ? `: ${snippet}` : ''}`);
   }
 
   return data;
