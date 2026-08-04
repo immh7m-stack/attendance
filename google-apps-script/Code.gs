@@ -928,6 +928,10 @@ function handleSubmitAttendance(body) {
     if (!isSessionActive(studentSession)) {
       return createError('session_expired', 'Student session is expired or inactive', { sessionToken: body.sessionToken });
     }
+    const sessionStudentId = String(getRowValue(studentSession, 'student_id') || '').trim();
+    if (sessionStudentId && sessionStudentId !== String(body.studentId).trim()) {
+      return createError('session_mismatch', 'Session token does not belong to this student', { studentId: body.studentId, sessionToken: body.sessionToken });
+    }
     sessionId = String(getRowValue(studentSession, 'session_id') || body.sessionId || '');
     distance = calculateDistance(Number(getRowValue(studentSession, 'latitude')), Number(getRowValue(studentSession, 'longitude')), Number(body.latitude), Number(body.longitude));
     radius = Number(getRowValue(studentSession, 'radius') || body.radius || 0);
@@ -944,9 +948,9 @@ function handleSubmitAttendance(body) {
     return createError('out_of_range', 'Student is outside the allowed radius', { distance: Math.round(distance), radius });
   }
 
-  const attendanceRecords = getEntityRows(SHEET_CONFIG.attendance, { studentId: body.studentId, sessionId, date: body.date });
+  const attendanceRecords = getEntityRows(SHEET_CONFIG.attendance, { studentId: body.studentId, date: body.date });
   if (attendanceRecords.length) {
-    return createError('duplicate_attendance', 'Attendance already recorded', { studentId: body.studentId, sessionId, date: body.date });
+    return createError('duplicate_attendance', 'Attendance already recorded for this student today', { studentId: body.studentId, date: body.date });
   }
 
   const record = {
@@ -964,6 +968,7 @@ function handleSubmitAttendance(body) {
     longitude: body.longitude,
     device: body.device || '',
     browser: body.browser || '',
+    device_fingerprint: body.deviceFingerprint || body.device_fingerprint || '',
     notes: body.notes || '',
     created_at: new Date().toISOString()
   };

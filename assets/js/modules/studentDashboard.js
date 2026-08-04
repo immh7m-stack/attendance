@@ -3,6 +3,7 @@ import { attendanceService } from '../services/attendanceService.js';
 import * as locationModule from './location.js';
 import * as notifications from './notifications.js';
 import { sessionService } from '../services/sessionService.js';
+import { getDeviceFingerprint } from './device.js';
 
 const STATUS_LABELS = {
   present: 'حاضر',
@@ -139,7 +140,7 @@ function createDashboardContent(student, session, stats, attendanceRecords, alre
 
       <div class="sd-action">
         ${alreadyCheckedInToday ? `
-          <div class="sd-empty">تم تسجيل حضورك لهذا اليوم بالفعل. لا يمكن تسجيل حضور آخر في نفس الجلسة.</div>
+          <div class="sd-empty">تم تسجيل حضورك لهذا اليوم بالفعل. لا يمكن تسجيل حضور آخر اليوم.</div>
         ` : `
           <button id="checkInBtn" class="btn-checkin">
             <span class="pin"></span>
@@ -207,7 +208,7 @@ export async function initStudentDashboardPage() {
 
   const todayDate = getEgyptDateString(new Date());
   const alreadyCheckedInToday = attendanceRecords.some((record) =>
-    String(record.date) === todayDate && String(record.session_id || record.sessionId || record.sessionId || '') === String(session.session_id || session.sessionId || '')
+    String(record.date) === todayDate
   );
 
   container.innerHTML = createDashboardContent(student, session, stats, attendanceRecords, alreadyCheckedInToday);
@@ -252,6 +253,9 @@ export async function initStudentDashboardPage() {
           department: student.department,
           level: student.level,
           sessionToken: session.session_token || session.sessionToken || '',
+          deviceFingerprint: getDeviceFingerprint(),
+          device: navigator.platform || '',
+          browser: navigator.userAgent || '',
           date: new Intl.DateTimeFormat('en-CA', {
             timeZone: 'Africa/Cairo',
             year: 'numeric',

@@ -95,14 +95,15 @@ export function generateAttendanceObject(student, session, location) {
     level: student.level,
     sessionId: session?.sessionToken || session?.session_token || session?.sessionId || null,
     sessionToken: session?.sessionToken || session?.session_token || null,
+    deviceFingerprint: getDeviceFingerprint(),
     latitude: location.latitude,
     longitude: location.longitude,
     distance: location.distance,
     date: getEgyptDateString(now),
     time: getEgyptTimeString(now),
     status: 'present',
-    device: navigator.platform,
-    browser: navigator.userAgent,
+    device: navigator.platform || '',
+    browser: navigator.userAgent || '',
   };
 }
 
