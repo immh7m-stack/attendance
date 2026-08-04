@@ -4,7 +4,27 @@ import * as locationModule from './location.js';
 import * as notifications from './notifications.js';
 import { sessionService } from '../services/sessionService.js';
 
+function normalizeStudent(student = {}) {
+  return {
+    ...student,
+    studentId: student.studentId || student.student_id || student.id || '',
+    name: student.name || student.student_name || '',
+    department: student.department || student.student_department || '',
+    level: student.level || student.student_level || ''
+  };
+}
+
+function normalizeSession(session = {}) {
+  return {
+    ...session,
+    login_date: session.login_date || session.date || '-',
+    login_time: session.login_time || session.time || ''
+  };
+}
+
 function createDashboardContent(student, session, stats, attendanceRecords) {
+  const normalizedStudent = normalizeStudent(student);
+  const normalizedSession = normalizeSession(session);
   const attendanceRows = attendanceRecords.map((item) => `
       <tr>
         <td>${item.date || '-'}</td>
@@ -19,12 +39,12 @@ function createDashboardContent(student, session, stats, attendanceRecords) {
       <div class="student-header">
         <h1>لوحة الطالب</h1>
         <div class="student-card-summary">
-          <strong>${student.name}</strong>
-          <p>رقم الطالب: ${student.studentId}</p>
-          <p>القسم: ${student.department || '-'}</p>
-          <p>المستوى: ${student.level || '-'}</p>
-          <p>تاريخ الدخول: ${session?.login_date || '-'} ${session?.login_time || ''}</p>
-          <p>تنتهي الجلسة: ${session?.expires_at || '-'}</p>
+          <strong>${normalizedStudent.name || '-'}</strong>
+          <p>رقم الطالب: ${normalizedStudent.studentId || '-'}</p>
+          <p>القسم: ${normalizedStudent.department || '-'}</p>
+          <p>المستوى: ${normalizedStudent.level || '-'}</p>
+          <p>تاريخ الدخول: ${normalizedSession.login_date || '-'} ${normalizedSession.login_time || ''}</p>
+          <p>تنتهي الجلسة: ${normalizedSession.expires_at || '-'}</p>
         </div>
       </div>
       <div class="student-stats-grid">
@@ -74,17 +94,17 @@ export async function initStudentDashboardPage() {
     return;
   }
 
-  const session = sessionRes.data;
-  const studentRes = await studentService.getStudent(session.student_id);
-  const statsRes = await studentService.getStudentStatistics({ studentId: session.student_id });
-  const attendanceRes = await studentService.getStudentAttendance({ studentId: session.student_id });
+  const session = normalizeSession(sessionRes.data);
+  const studentRes = await studentService.getStudent(session.student_id || session.studentId || '');
+  const statsRes = await studentService.getStudentStatistics({ studentId: session.student_id || session.studentId || '' });
+  const attendanceRes = await studentService.getStudentAttendance({ studentId: session.student_id || session.studentId || '' });
 
   if (studentRes?.status !== 'success') {
     window.location.href = 'index.html';
     return;
   }
 
-  const student = studentRes.data;
+  const student = normalizeStudent(studentRes.data);
   const stats = statsRes?.status === 'success' ? statsRes.data : { totalLectures: 0, present: 0, absent: 0, attendanceRate: 0 };
   const attendanceRecords = attendanceRes?.status === 'success' ? attendanceRes.data : [];
 
