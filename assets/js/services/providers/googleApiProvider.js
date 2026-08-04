@@ -40,7 +40,8 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
   if (body && method !== 'GET') {
     const filteredBody = cleanBody(body);
     if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
-      options.body = new URLSearchParams(filteredBody).toString();
+      requestHeaders['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(filteredBody);
     } else if (requestHeaders['Content-Type'] === 'application/json' || requestHeaders['content-type'] === 'application/json') {
       options.body = JSON.stringify(filteredBody);
     } else {

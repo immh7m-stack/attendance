@@ -174,8 +174,6 @@ function handleStudentLogin(body) {
   const locationSettings = getLocationSettings();
   const allowMultipleDevices = parseBoolean(locationSettings.allow_multiple_devices);
 
-  const departmentName = String(body.department || '').trim();
-  const levelName = String(body.level || '').trim();
   const activeDepartments = getEntityRows(SHEET_CONFIG.departments, { active: 'TRUE' });
   const departmentRow = findRow(activeDepartments, 'department_name', departmentName);
   if (!departmentRow) {
@@ -632,11 +630,14 @@ function handleDashboardTrend(params) {
 }
 
 function parseRequestBody(e) {
-  if (e.postData && e.postData.type && e.postData.type.indexOf('application/json') !== -1) {
-    try {
-      return JSON.parse(e.postData.contents || '{}');
-    } catch (err) {
-      return {};
+  if (e.postData && e.postData.contents) {
+    const contents = String(e.postData.contents || '').trim();
+    if (contents) {
+      try {
+        return JSON.parse(contents);
+      } catch (err) {
+        // fall back to URL-encoded params below
+      }
     }
   }
 
