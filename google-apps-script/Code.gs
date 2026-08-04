@@ -200,21 +200,30 @@ function handleStudentLogin(body) {
   }
 
   const students = getEntityRows(SHEET_CONFIG.students, {});
-  const existingStudent = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
-  if (!existingStudent) {
-    return createError('student_not_allowed', 'هذا الطالب غير مسجل في النظام. تواصل مع الإدارة.');
-  }
-  const studentStatus = String(getRowValue(existingStudent, 'status') || 'inactive').toLowerCase();
-  if (studentStatus !== 'active') {
-    return createError('student_inactive', 'حالة الطالب غير نشطة، غير مسموح بالدخول.');
-  }
-  const updatedStudent = Object.assign({}, existingStudent, {
+  let existingStudent = findRow(students, 'student_id', studentId) || findRow(students, 'id', studentId);
+  const studentFields = {
+    student_id: studentId,
     name: studentName,
-    department: String(body.department || getRowValue(existingStudent, 'department') || '').trim(),
-    level: String(body.level || getRowValue(existingStudent, 'level') || '').trim(),
+    department: departmentName,
+    level: levelName,
     updated_at: new Date().toISOString()
-  });
-  updateRow(SHEET_CONFIG.students, existingStudent.__rowNum, updatedStudent);
+  };
+
+  if (!existingStudent) {
+    existingStudent = Object.assign({}, studentFields, {
+      id: generateId('student'),
+      status: 'active',
+      created_at: new Date().toISOString()
+    });
+    appendRow(SHEET_CONFIG.students, existingStudent);
+  } else {
+    const updatedStudent = Object.assign({}, existingStudent, studentFields);
+    if (!getRowValue(existingStudent, 'status')) {
+      updatedStudent.status = 'active';
+    }
+    updateRow(SHEET_CONFIG.students, existingStudent.__rowNum, updatedStudent);
+    existingStudent = updatedStudent;
+  }
 
   const existingByStudent = findStudentSessionByStudentId(studentId);
   if (existingByStudent) {
