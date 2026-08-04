@@ -32,21 +32,24 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
     : buildUrl(endpoint);
 
   const requestHeaders = {
+    Accept: 'application/json',
     ...headers
   };
 
-  const options = { method, headers: requestHeaders };
+  const options = {
+    method,
+    headers: requestHeaders,
+    mode: 'cors',
+    cache: 'no-store'
+  };
 
   if (body && method !== 'GET') {
     const filteredBody = cleanBody(body);
-    if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
-      requestHeaders['Content-Type'] = 'application/json';
-      options.body = JSON.stringify(filteredBody);
-    } else if (requestHeaders['Content-Type'] === 'application/json' || requestHeaders['content-type'] === 'application/json') {
-      options.body = JSON.stringify(filteredBody);
-    } else {
-      options.body = new URLSearchParams(filteredBody).toString();
-    }
+    options.body = new URLSearchParams(filteredBody);
+  }
+
+  if (method === 'GET' && Object.keys(params).length) {
+    options.body = undefined;
   }
 
   const response = await fetch(url, options);
