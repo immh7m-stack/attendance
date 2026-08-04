@@ -74,6 +74,16 @@ async function initHomePage() {
       return;
     }
 
+    localStorage.setItem('student_location_gate', JSON.stringify({
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      accuracy: currentLocation.accuracy,
+      distance: Math.round(radiusCheck.distance),
+      checkedAt: Date.now(),
+      sessionId: activeSession?.session_id || '',
+      inside: true
+    }));
+
     if (homeStatus) {
       homeStatus.textContent = 'تم التحقق من الموقع. جاري تحويلك إلى نموذج الحضور...';
       homeStatus.classList.add('success');

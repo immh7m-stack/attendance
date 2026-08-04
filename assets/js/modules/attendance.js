@@ -192,12 +192,48 @@ export async function initStudentPage() {
     return null;
   }
 
+  const LOCATION_GATE_KEY = 'student_location_gate';
+
   let currentLecture = null;
   let checkedLocation = null;
   let locationGateAllowed = false;
 
+  function getStoredLocationGate() {
+    try {
+      const raw = localStorage.getItem(LOCATION_GATE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.inside || !Number.isFinite(parsed.latitude) || !Number.isFinite(parsed.longitude)) {
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      return null;
+    }
+  }
+
   async function checkLocation() {
     const submitButton = form.querySelector('button[type="submit"]');
+    const storedGate = getStoredLocationGate();
+
+    if (storedGate) {
+      checkedLocation = {
+        latitude: storedGate.latitude,
+        longitude: storedGate.longitude,
+        accuracy: storedGate.accuracy || 0,
+      };
+      locationGateAllowed = true;
+
+      if (sessionInfoContainer) {
+        sessionInfoContainer.textContent = 'تم التحقق من الموقع سابقًا. يمكنك الاستمرار في بيانات الطالب.';
+      }
+
+      locationModule.showLocationStatus('تم التحقق من الموقع مسبقًا داخل النطاق.', true);
+      if (submitButton) submitButton.disabled = false;
+      form.style.display = 'grid';
+      return true;
+    }
+
     const locationSettingsRes = await settingsService.getLocationSettings();
     const locationSettings = locationSettingsRes?.status === 'success' ? locationSettingsRes.data : null;
 
