@@ -283,6 +283,8 @@ function handleStudentLogin(body) {
 function handleGetStudentSession(params) {
   const token = String(params.sessionToken || params.token || params.session_token || '').trim();
   const studentId = String(params.studentId || params.student_id || '').trim();
+  const deviceFingerprint = String(params.deviceFingerprint || params.device_fingerprint || '').trim();
+
   if (token) {
     const session = findStudentSessionByToken(token);
     if (!session) return createError('not_found', 'Student session not found', { token });
@@ -291,6 +293,11 @@ function handleGetStudentSession(params) {
   if (studentId) {
     const session = findStudentSessionByStudentId(studentId);
     if (!session) return createError('not_found', 'Student session not found', { studentId });
+    return createSuccess(session);
+  }
+  if (deviceFingerprint) {
+    const session = findStudentSessionByFingerprint(deviceFingerprint);
+    if (!session) return createError('not_found', 'Student session not found for device fingerprint', { deviceFingerprint });
     return createSuccess(session);
   }
   return createError('validation_error', 'studentId or sessionToken is required');

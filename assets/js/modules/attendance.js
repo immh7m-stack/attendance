@@ -336,6 +336,16 @@ export async function initStudentPage() {
       localStorage.removeItem('student_session_token');
     }
 
+    const fingerprint = getDeviceFingerprint();
+    if (fingerprint) {
+      const deviceSessionRes = await studentService.getStudentSession({ deviceFingerprint: fingerprint });
+      if (deviceSessionRes?.status === 'success' && deviceSessionRes.data) {
+        localStorage.setItem('student_session_token', deviceSessionRes.data.session_token || deviceSessionRes.data.sessionToken || '');
+        window.location.href = 'dashboard.html';
+        return;
+      }
+    }
+
     await loadDropdownOptions();
 
     const activeSessionRes = await sessionService.getActiveSession();

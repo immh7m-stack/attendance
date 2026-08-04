@@ -2,12 +2,22 @@ import { APP_CONFIG } from '../../config.js';
 
 function isGoogleScriptUrlConfigured(url) {
   if (!url) return false;
-  return String(url).includes('script.google.com/macros/s/') && !url.includes('<DEPLOY_ID>') && !url.includes('placeholder');
+  const normalized = String(url).trim();
+  return normalized.includes('script.google.com/macros/s/') && !normalized.includes('<DEPLOY_ID>') && !normalized.includes('placeholder');
+}
+
+function isGoogleLibraryUrl(url) {
+  if (!url) return false;
+  const normalized = String(url).trim();
+  return normalized.includes('googleusercontent.com/macros/echo') || normalized.includes('script.googleusercontent.com/macros/echo');
 }
 
 function getBaseUrl() {
   if (isGoogleScriptUrlConfigured(APP_CONFIG.googleScriptUrl)) {
     return APP_CONFIG.googleScriptUrl;
+  }
+  if (APP_CONFIG.googleScriptUrl && isGoogleLibraryUrl(APP_CONFIG.googleScriptUrl)) {
+    throw new Error('Google Apps Script URL is configured as a library/echo URL, not a deployed Web App exec URL. Update APP_CONFIG.googleScriptUrl in assets/js/config.js to the published exec URL.');
   }
   if (APP_CONFIG.apiUrl) {
     return APP_CONFIG.apiUrl;
@@ -75,6 +85,7 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
     data = text ? JSON.parse(text) : null;
   } catch (error) {
     const snippet = String(text || '').slice(0, 300).replace(/\s+/g, ' ').trim();
+    console.error('Google API provider received non-JSON response', { url, status: response.status, body: snippet });
     throw new Error(`Invalid JSON response from API${snippet ? `: ${snippet}` : ''}`);
   }
 
