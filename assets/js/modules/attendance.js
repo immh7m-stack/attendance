@@ -1,4 +1,5 @@
 import * as locationModule from './location.js';
+import { APP_CONFIG } from '../config.js';
 import * as validation from './validation.js';
 import * as notifications from './notifications.js';
 import { navigateTo } from '../router.js';
@@ -266,7 +267,7 @@ export async function initStudentPage() {
 
     const settingsLatitude = Number(locationSettings?.university_latitude || locationSettings?.latitude || 0);
     const settingsLongitude = Number(locationSettings?.university_longitude || locationSettings?.longitude || 0);
-    const settingsRadius = Number(locationSettings?.gps_radius || locationSettings?.radius || 300);
+    const settingsRadius = Number(locationSettings?.gps_radius || locationSettings?.radius || APP_CONFIG.gpsRadiusMeters);
 
     let targetLatitude = settingsLatitude;
     let targetLongitude = settingsLongitude;
@@ -275,7 +276,7 @@ export async function initStudentPage() {
     if (currentLecture) {
       targetLatitude = Number(currentLecture.latitude || settingsLatitude || 0);
       targetLongitude = Number(currentLecture.longitude || settingsLongitude || 0);
-      targetRadius = Number(currentLecture.radius || settingsRadius || 300);
+      targetRadius = Number(currentLecture.radius || settingsRadius || APP_CONFIG.gpsRadiusMeters);
     }
 
     if (!Number.isFinite(targetLatitude) || !Number.isFinite(targetLongitude) || targetLatitude === 0 || targetLongitude === 0) {
@@ -290,7 +291,7 @@ export async function initStudentPage() {
 
     try {
       checkedLocation = currentLocation;
-      const radiusCheck = locationModule.isInsideRadius(
+      const radiusCheck = await locationModule.isInsideRadius(
         checkedLocation,
         { latitude: targetLatitude, longitude: targetLongitude },
         targetRadius
@@ -432,7 +433,7 @@ export async function initStudentPage() {
 
     const lectureLatitude = Number(currentLecture.latitude || 0);
     const lectureLongitude = Number(currentLecture.longitude || 0);
-    const gpsRadius = Number(currentLecture.radius || 300);
+    const gpsRadius = Number(currentLecture.radius || APP_CONFIG.gpsRadiusMeters);
 
     if (!Number.isFinite(lectureLatitude) || !Number.isFinite(lectureLongitude) || lectureLatitude === 0 || lectureLongitude === 0) {
       notifications.loading(false);
@@ -441,7 +442,7 @@ export async function initStudentPage() {
       return;
     }
 
-    const radiusCheck = locationModule.isInsideRadius(
+    const radiusCheck = await locationModule.isInsideRadius(
       currentLocation,
       {
         latitude: lectureLatitude,

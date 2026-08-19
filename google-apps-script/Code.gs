@@ -13,6 +13,8 @@ const SHEET_CONFIG = {
 const SCRIPT_PROPERTY_SPREADSHEET_ID = 'SPREADSHEET_ID';
 // Updated to the actual spreadsheet used by this project.
 const DEFAULT_SPREADSHEET_ID = '1dOa6KqmoJ_2AYFBOcNhCgbuvKvSg4S-pH_T8O0TSpNQ';
+// Default GPS radius in meters used when settings or session radius are not provided
+const DEFAULT_GPS_RADIUS = 300;
 
 function getSpreadsheet() {
   const spreadsheetId = PropertiesService.getScriptProperties().getProperty(SCRIPT_PROPERTY_SPREADSHEET_ID) || DEFAULT_SPREADSHEET_ID;
@@ -193,13 +195,13 @@ function handleStudentLogin(body) {
       latitude: Number(getRowValue(activeSession, 'latitude') || 0),
       longitude: Number(getRowValue(activeSession, 'longitude') || 0)
     };
-    geoRadius = Number(getRowValue(activeSession, 'radius') || 300);
+    geoRadius = Number(getRowValue(activeSession, 'radius') || DEFAULT_GPS_RADIUS);
   } else {
     geoCenter = {
       latitude: Number(locationSettings.university_latitude || locationSettings.latitude || 0),
       longitude: Number(locationSettings.university_longitude || locationSettings.longitude || 0)
     };
-    geoRadius = Number(locationSettings.gps_radius || locationSettings.radius || 300);
+    geoRadius = Number(locationSettings.gps_radius || locationSettings.radius || DEFAULT_GPS_RADIUS);
   }
 
   const geoCheck = isWithinAllowedRadius(latitude, longitude, geoCenter.latitude, geoCenter.longitude, geoRadius);
@@ -508,6 +510,15 @@ function doGet(e) {
         return jsonResponse(handleGetLocationSettings());
       }
       return jsonResponse(createSuccess(handleGetSettings(params)));
+    }
+    // Public endpoint to calculate distance on the server side
+    if (route.resource === 'calculate' && route.id === 'distance') {
+      const lat1 = Number(params.lat1 || params.lat || 0);
+      const lon1 = Number(params.lon1 || params.lon || 0);
+      const lat2 = Number(params.lat2 || params.lat || params.latitude || 0);
+      const lon2 = Number(params.lon2 || params.lon || params.longitude || 0);
+      const distance = distanceBetween(lat1, lon1, lat2, lon2);
+      return jsonResponse(createSuccess({ distance }));
     }
     if (route.resource === 'students') {
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.students, params)));
@@ -1018,12 +1029,27 @@ function handleSaveSettings(body) {
   return createSuccess({ updated: changed, values });
 }
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const toRad = (deg) => deg * Math.PI / 180;
+function distanceBetween(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Earth radius in meters
+
+  const toRad = (deg) => (deg * Math.PI) / 180;
+
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lon1)) * Math.sin(dLon / 2) ** 2;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const earthRadius = 6371000;
-  return earthRadius * c;
+
+  return R * c; // result in meters
+}
+
+// Backwards-compatible alias: older code calls `calculateDistance`
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  return distanceBetween(lat1, lon1, lat2, lon2);
 }

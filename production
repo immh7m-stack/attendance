@@ -1,0 +1,241 @@
+لو هتستخدم Google Apps Script + GitHub Pages فدي تفاصيل مرحلة النشر بشكل عملي:
+
+12. النشر (Deployment)
+12.1 تجهيز Google Apps Script (Backend)
+إنشاء مشروع Google Apps Script جديد.
+ربطه بملف Google Sheets.
+كتابة جميع الدوال:
+doGet()
+doPost()
+إنشاء جميع الـ APIs:
+login
+logout
+students
+attendance
+sessions
+settings
+reports
+اختبار كل API داخل Apps Script.
+12.2 إعداد Google Sheets
+
+إنشاء جميع Sheets المطلوبة مثل:
+
+students
+attendance
+sessions
+admins
+departments
+levels
+settings
+student_sessions
+logs
+
+ثم:
+
+كتابة أسماء الأعمدة.
+إضافة بيانات المدير.
+إضافة الإعدادات الأساسية.
+إعطاء Apps Script صلاحية الوصول.
+12.3 نشر Apps Script
+
+من داخل Apps Script:
+
+Deploy
+
+↓
+
+New Deployment
+
+↓
+
+Web App
+
+ثم اختيار:
+
+Execute as
+
+Me
+
+ومن
+
+Who has access
+
+Anyone
+
+أو
+
+Anyone with the link
+
+ثم
+
+Deploy
+
+بعدها ستحصل على رابط مثل:
+
+https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxx/exec
+
+هذا هو الرابط الذي يوضع داخل:
+
+googleScriptUrl
+
+في
+
+config.js
+12.4 اختبار الـ API
+
+قبل رفع الموقع اختبر الرابط مباشرة.
+
+مثلاً:
+
+.../exec?action=settings
+
+يجب أن يرجع
+
+{
+  "status":"success",
+  "data":...
+}
+
+ثم جرب
+
+?action=student
+
+ثم
+
+?action=sessions/active
+
+ثم
+
+?action=attendance
+
+وتتأكد أن جميعها ترجع JSON وليس HTML أو 404.
+
+12.5 رفع Frontend على GitHub
+
+رفع المشروع إلى GitHub.
+
+مثلاً:
+
+attendance/
+
+ثم عمل Push.
+
+12.6 تفعيل GitHub Pages
+
+من إعدادات المستودع:
+
+Settings
+
+↓
+
+Pages
+
+↓
+
+Deploy from Branch
+
+↓
+
+main
+
+↓
+
+/root
+
+ثم Save.
+
+بعد دقيقة تقريبًا سيصبح الموقع متاحًا على:
+
+https://username.github.io/attendance/
+12.7 تعديل إعدادات المشروع
+
+داخل
+
+config.js
+
+تغيير:
+
+googleScriptUrl
+
+إلى رابط Apps Script الحقيقي.
+
+ثم تعديل:
+
+siteUrl
+studentUrl
+adminUrl
+
+لتطابق رابط GitHub Pages.
+
+12.8 ربط الواجهة بالـ API
+
+التأكد أن جميع الخدمات تستخدم:
+
+googleApiProvider
+
+وليس روابط ثابتة.
+
+مثل:
+
+studentService
+attendanceService
+sessionService
+settingsService
+dashboardService
+
+وجميعها تعتمد على:
+
+APP_CONFIG.googleScriptUrl
+12.9 اختبار النظام بالكامل
+
+تنفيذ سيناريوهات الاستخدام كاملة:
+
+تسجيل دخول المدير.
+إضافة قسم.
+إضافة مستوى.
+إضافة طالب.
+فتح محاضرة.
+تحديد الموقع الجغرافي.
+تسجيل دخول الطالب.
+تسجيل حضور الطالب.
+منع تسجيل الحضور مرتين.
+منع التسجيل من خارج النطاق.
+عرض لوحة الطالب.
+عرض لوحة المدير.
+التقارير.
+تسجيل الخروج.
+12.10 اختبار الأمان
+
+التأكد من:
+
+عدم السماح بتسجيل الحضور مرتين في نفس اليوم.
+جهاز واحد فقط لكل طالب في اليوم.
+عدم السماح لنفس الجهاز بتسجيل طالب آخر.
+انتهاء صلاحية Session.
+عدم قبول أي طلب بدون Session Token.
+التحقق من الموقع الجغرافي.
+التحقق من وجود محاضرة مفتوحة.
+منع التعديل المباشر على البيانات من المتصفح.
+تسجيل جميع العمليات في Sheet logs.
+12.11 اختبار الأداء
+
+اختبار مع:
+
+50 طالب.
+100 طالب.
+300 طالب.
+فتح الموقع من عدة أجهزة في نفس الوقت.
+التأكد من سرعة استجابة Apps Script وعدم ظهور أخطاء Timeout.
+12.12 النسخة النهائية (Production)
+
+قبل الاستخدام الفعلي:
+
+حذف بيانات الاختبار.
+إنشاء نسخة احتياطية من Google Sheets.
+تثبيت إصدار (Version) جديد من Apps Script.
+إعادة نشر Web App.
+تحديث رابط النشر إذا لزم الأمر.
+اختبار سريع بعد النشر.
+مشاركة رابط الموقع مع المستخدمين.
+
+بهذه الخطوات يكون المشروع جاهزًا للعمل على الإنترنت باستخدام GitHub Pages كواجهة أمامية وGoogle Apps Script + Google Sheets كخادم وقاعدة بيانات.

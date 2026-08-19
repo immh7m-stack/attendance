@@ -1,4 +1,5 @@
 import { settingsService } from '../services/settingsService.js';
+import { APP_CONFIG } from '../config.js';
 import { success, error } from './notifications.js';
 import { createCard, createEmptyState } from './components.js';
 
@@ -18,7 +19,7 @@ export async function initSettingsPage(container) {
     <div class="form-grid">
       <label>Latitude الجامعة<input id="universityLatitude" type="number" step="any" value="${settings.university_latitude || ''}" /></label>
       <label>Longitude الجامعة<input id="universityLongitude" type="number" step="any" value="${settings.university_longitude || ''}" /></label>
-      <label>نصف قطر GPS (متر)<input id="gpsRadius" type="number" value="${settings.gps_radius || 300}" /></label>
+      <label>نصف قطر GPS (متر)<input id="gpsRadius" type="number" value="${settings.gps_radius || APP_CONFIG.gpsRadiusMeters}" /></label>
       <label>سماح لأجهزة متعددة<input id="allowMultipleDevices" type="checkbox" ${settings.allow_multiple_devices ? 'checked' : ''} /></label>
       <label>مدة الجلسة (ساعات)<input id="sessionDurationHours" type="number" value="${settings.session_duration_hours || 24}" /></label>
     </div>
@@ -36,7 +37,7 @@ export async function initSettingsPage(container) {
     const payload = {
       university_latitude: Number(form.querySelector('#universityLatitude').value) || '',
       university_longitude: Number(form.querySelector('#universityLongitude').value) || '',
-      gps_radius: Number(form.querySelector('#gpsRadius').value) || 300,
+      gps_radius: Number(form.querySelector('#gpsRadius').value) || APP_CONFIG.gpsRadiusMeters,
       allow_multiple_devices: form.querySelector('#allowMultipleDevices').checked,
       session_duration_hours: Number(form.querySelector('#sessionDurationHours').value) || 24
     };

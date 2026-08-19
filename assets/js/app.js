@@ -49,7 +49,7 @@ async function initHomePage() {
 
     const targetLatitude = Number(activeSession?.latitude || locationSettings?.university_latitude || locationSettings?.latitude || 0);
     const targetLongitude = Number(activeSession?.longitude || locationSettings?.university_longitude || locationSettings?.longitude || 0);
-    const targetRadius = Number(activeSession?.radius || locationSettings?.gps_radius || locationSettings?.radius || 300);
+    const targetRadius = Number(activeSession?.radius || locationSettings?.gps_radius || locationSettings?.radius || APP_CONFIG.gpsRadiusMeters);
 
     if (!Number.isFinite(targetLatitude) || !Number.isFinite(targetLongitude) || targetLatitude === 0 || targetLongitude === 0) {
       if (homeStatus) {
@@ -60,7 +60,7 @@ async function initHomePage() {
     }
 
     const currentLocation = await locationModule.getCurrentLocation();
-    const radiusCheck = locationModule.isInsideRadius(
+    const radiusCheck = await locationModule.isInsideRadius(
       currentLocation,
       { latitude: targetLatitude, longitude: targetLongitude },
       targetRadius

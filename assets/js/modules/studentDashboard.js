@@ -4,6 +4,7 @@ import * as locationModule from './location.js';
 import * as notifications from './notifications.js';
 import { sessionService } from '../services/sessionService.js';
 import { getDeviceFingerprint } from './device.js';
+import { APP_CONFIG } from '../config.js';
 
 const STATUS_LABELS = {
   present: 'حاضر',
@@ -232,8 +233,8 @@ export async function initStudentDashboardPage() {
 
         const lectureLatitude = Number(activeSession.latitude || 0);
         const lectureLongitude = Number(activeSession.longitude || 0);
-        const gpsRadius = Number(activeSession.radius || 300);
-        const radiusCheck = locationModule.isInsideRadius(
+        const gpsRadius = Number(activeSession.radius || APP_CONFIG.gpsRadiusMeters);
+        const radiusCheck = await locationModule.isInsideRadius(
           currentLocation,
           { latitude: lectureLatitude, longitude: lectureLongitude },
           gpsRadius
