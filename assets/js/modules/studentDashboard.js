@@ -47,12 +47,18 @@ function getEgyptDateString(date = new Date()) {
   }).format(date);
 }
 
+const BARE_TIME_PATTERN = /^\d{2}:\d{2}(:\d{2})?$/;
+
 function toCairoDate(value) {
   if (!value) return null;
 
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (!trimmed) return null;
+
+    if (BARE_TIME_PATTERN.test(trimmed)) {
+      return null;
+    }
 
     if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/.test(trimmed)) {
       const isoValue = trimmed.replace(' ', 'T');
@@ -81,6 +87,11 @@ function hasCheckedInToday(attendanceRecords = [], todayDate) {
 }
 
 function formatTimePart(value) {
+  if (typeof value === 'string' && BARE_TIME_PATTERN.test(value.trim())) {
+    const trimmed = value.trim();
+    return trimmed.length === 5 ? `${trimmed}:00` : trimmed;
+  }
+
   const date = toCairoDate(value);
   if (!date) return '—';
   return new Intl.DateTimeFormat('en-GB', {

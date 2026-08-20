@@ -69,8 +69,16 @@ function showStudentPanel(student, session, stats) {
   studentStats.innerHTML = renderStudentStats(stats);
 }
 
+const BARE_TIME_PATTERN = /^\d{2}:\d{2}(:\d{2})?$/;
+
 function formatSessionDateTime(value) {
   if (!value) return '—';
+
+  if (typeof value === 'string' && BARE_TIME_PATTERN.test(value.trim())) {
+    const trimmed = value.trim();
+    return trimmed.length === 5 ? `${trimmed}:00` : trimmed;
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
 

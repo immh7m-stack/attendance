@@ -103,13 +103,28 @@ function getActiveSessionsForStudent(studentId, loginDate = getTodayDate()) {
   return rows.filter((session) => isSessionActive(session));
 }
 
+function getActiveSessionsForStudentAnyDate(studentId) {
+  const rows = getEntityRows(SHEET_CONFIG.student_sessions, { student_id: studentId });
+  return rows.filter((session) => isSessionActive(session));
+}
+
 function getActiveSessionsForDevice(deviceFingerprint, loginDate = getTodayDate()) {
-  const rows = getEntityRows(SHEET_CONFIG.student_sessions, { device_fingerprint: deviceFingerprint, login_date: loginDate });
+  const rows = getEntityRows(SHEET_CONFIG.student_sessions, {
+    device_fingerprint: deviceFingerprint,
+    login_date: loginDate
+  });
+  return rows.filter((session) => isSessionActive(session));
+}
+
+function getActiveSessionsForDeviceAnyDate(deviceFingerprint) {
+  const rows = getEntityRows(SHEET_CONFIG.student_sessions, {
+    device_fingerprint: deviceFingerprint
+  });
   return rows.filter((session) => isSessionActive(session));
 }
 
 function findStudentSessionByStudentId(studentId) {
-  const activeSessions = getActiveSessionsForStudent(studentId);
+  const activeSessions = getActiveSessionsForStudentAnyDate(studentId);
   if (!activeSessions.length) return null;
   return sortActiveSessionsByRecency(activeSessions)[0];
 }
@@ -128,7 +143,7 @@ function findStudentSessionByToken(token) {
 }
 
 function findStudentSessionByFingerprint(fingerprint) {
-  const activeSessions = getActiveSessionsForDevice(fingerprint);
+  const activeSessions = getActiveSessionsForDeviceAnyDate(fingerprint);
   if (!activeSessions.length) return null;
   return sortActiveSessionsByRecency(activeSessions)[0];
 }
