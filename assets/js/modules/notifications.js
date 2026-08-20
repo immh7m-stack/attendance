@@ -1,16 +1,17 @@
 import { notificationService } from '../services/notificationService.js';
 
 function createToast(message, type = 'info') {
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.setAttribute('role', 'alert');
-  toast.setAttribute('aria-live', 'assertive');
-  toast.textContent = message;
-  document.body.appendChild(toast);
+  const alertBox = document.createElement('div');
+  alertBox.className = `toast ${type}`;
+  alertBox.setAttribute('role', 'alert');
+  alertBox.setAttribute('aria-live', 'assertive');
+  alertBox.textContent = message;
+  document.body.appendChild(alertBox);
+
   setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(12px)';
-    setTimeout(() => toast.remove(), 220);
+    alertBox.style.opacity = '0';
+    alertBox.style.transform = 'translate(-50%, -50%) translateY(10px)';
+    setTimeout(() => alertBox.remove(), 220);
   }, 2800);
 }
 
