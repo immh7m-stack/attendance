@@ -357,6 +357,30 @@ button, input, select, textarea {
   box-shadow: 0 0 0 6px rgba(23, 35, 63, 0.1);
 }
 
+.dashboard-inline-notice {
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(23, 35, 63, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--navy-900);
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 8px 18px -16px rgba(23, 35, 63, 0.4);
+}
+
+.dashboard-inline-notice.warning {
+  border-color: rgba(201, 139, 24, 0.2);
+  background: rgba(255, 246, 220, 0.96);
+  color: #7a4f06;
+}
+
+.dashboard-inline-notice.info {
+  border-color: rgba(23, 35, 63, 0.08);
+  background: rgba(245, 247, 252, 0.96);
+  color: var(--navy-900);
+}
+
 .page-shell {
   min-height: 100vh;
   display: grid;

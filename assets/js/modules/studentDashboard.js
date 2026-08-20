@@ -5,6 +5,7 @@ import * as notifications from './notifications.js';
 import { sessionService } from '../services/sessionService.js';
 import { getDeviceFingerprint } from './device.js';
 import { APP_CONFIG } from '../config.js';
+import { showRedirectLoader } from './redirectLoader.js';
 
 const STATUS_LABELS = {
   present: 'حاضر',
@@ -151,6 +152,22 @@ function isLectureRegistrationOpen(session, now = new Date()) {
   return true;
 }
 
+function showDashboardNotification(message, type = 'info') {
+  const container = document.querySelector('#studentDashboardContainer');
+  if (!container) return;
+
+  let notice = container.querySelector('.dashboard-inline-notice');
+  if (!notice) {
+    notice = document.createElement('div');
+    notice.className = 'dashboard-inline-notice';
+    container.prepend(notice);
+  }
+
+  notice.className = `dashboard-inline-notice ${type}`;
+  notice.textContent = message;
+  notice.hidden = false;
+}
+
 function createDashboardContent(student, session, stats, attendanceRecords, alreadyCheckedInToday) {
   const normalizedStudent = normalizeStudent(student);
   const normalizedSession = normalizeSession(session);
@@ -244,8 +261,11 @@ export async function initStudentDashboardPage() {
   const container = document.querySelector('#studentDashboardContainer');
   if (!container) return;
 
+  showDashboardNotification('جارٍ تجهيز لوحة الطالب...', 'info');
+
   const token = localStorage.getItem('student_session_token');
   if (!token) {
+    showDashboardNotification('لا توجد جلسة فعّالة. جاري التوجيه إلى صفحة التسجيل...', 'warning');
     await showRedirectLoader({
       title: 'جارٍ التوجيه إلى صفحة تسجيل الحضور',
       subtitle: 'يتم تجهيز الصفحة الرئيسية للطالب...'
@@ -256,6 +276,7 @@ export async function initStudentDashboardPage() {
 
   const sessionRes = await studentService.getStudentSession({ sessionToken: token });
   if (sessionRes?.status !== 'success' || !sessionRes.data) {
+    showDashboardNotification('الجلسة منتهية أو غير صالحة. جاري التوجيه...', 'warning');
     await showRedirectLoader({
       title: 'جارٍ التوجيه إلى صفحة تسجيل الحضور',
       subtitle: 'يتم تجهيز الصفحة الرئيسية للطالب...'
@@ -316,17 +337,26 @@ export async function initStudentDashboardPage() {
         }
 
         if (!activeSession) {
-          notifications.error('لا توجد محاضرة حالية.');
+          const msg = 'ا التسجيل مغلق الآن  .';
+          showDashboardNotification(msg, 'warning');
+          notifications.error(msg);
           notifications.loading(false);
           checkInBtn.disabled = false;
           return;
         }
+
+        const hasTimeBounds = !!(
+          activeSession && (
+            activeSession.start_time || activeSession.startTime || activeSession.end_time || activeSession.endTime || activeSession.expires_at || activeSession.expiresAt
+          )
         );
 
         if (hasTimeBounds && !isLectureRegistrationOpen(activeSession)) {
           const lectureDate = activeSession.date || 'اليوم';
           const startTime = activeSession.start_time || activeSession.startTime || '—';
           const endTime = activeSession.end_time || activeSession.endTime || '—';
+          const msg = `التسجيل مغلق الآن. (الوقت: من ${startTime} إلى ${endTime})`;
+          showDashboardNotification(msg, 'warning');
 
           if (existingSessionData && existingSessionToken && currentSessionToken && existingSessionToken === currentSessionToken) {
             notifications.error(`التسجيل مغلق الآن لديك لانك سجلت من قبل  (الوقت: من ${startTime} إلى ${endTime}).`);
@@ -347,7 +377,9 @@ export async function initStudentDashboardPage() {
         );
 
         if (!radiusCheck.inside) {
-          notifications.error(`أنت خارج نطاق الجامعة. المسافة ${Math.round(radiusCheck.distance)} متر.`);
+          const msg = `أنت خارج نطاق الجامعة. المسافة ${Math.round(radiusCheck.distance)} متر.`;
+          showDashboardNotification(msg, 'warning');
+          notifications.error(msg);
           notifications.loading(false);
           checkInBtn.disabled = false;
           return;
