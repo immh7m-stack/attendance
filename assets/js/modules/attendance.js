@@ -114,8 +114,8 @@ export async function submitAttendance(attendanceData) {
 }
 
 export function showSuccess() { navigateTo('dashboard.html'); }
-export function showDenied(message = 'أنت خارج نطاق الجامعة.') { notifications.error(message); }
-export function showDuplicate(message = 'تم تسجيل الحضور مسبقًا لهذا اليوم.') { notifications.error(message); }
+export function showDenied(message = 'الموقع الحالي غير مناسب للتسجيل.') { notifications.error(message); }
+export function showDuplicate(message = 'تم تسجيل حضورك مسبقًا لهذا اليوم. لا يمكنك التسجيل مرة أخرى اليوم.') { notifications.error(message); }
 export function showOffline(message = 'لا يوجد اتصال بالإنترنت. تحقق من الاتصال وحاول مرة أخرى.') { notifications.error(message); }
 export function showError(message = 'حدث خطأ. حاول مرة أخرى لاحقًا.') { notifications.error(message); }
 
@@ -654,15 +654,15 @@ export async function initStudentPage() {
         }
         
         if (errorCode === 'out_of_range') {
-          showDenied('أنت خارج نطاق الجامعة.');
+          showDenied('الموقع الحالي غير مناسب للتسجيل.');
           return;
         }
         if (errorCode === 'device_mismatch') {
-          notifications.error(loginResult.error.message || 'تم تغيير الجهاز، مطلوب التحقق.');
+          notifications.error(loginResult.error.message || 'تم تغيير الجهاز، مطلوب التحقق قبل التسجيل.');
           return;
         }
         if (errorCode === 'device_in_use') {
-          notifications.error(loginResult.error.message || 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+          notifications.error(loginResult.error.message || 'هذا الجهاز مستخدم من طالب آخر اليوم.');
           return;
         }
         
@@ -695,7 +695,7 @@ export async function initStudentPage() {
         return;
       } else {
         if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
-          showDuplicate();
+          showDuplicate('تم تسجيل حضورك مسبقًا لهذا اليوم. لا يمكنك التسجيل مرة أخرى اليوم.');
           return;
         }
         notifications.error(apiResult.error?.message || 'فشل إرسال بيانات الحضور. حاول مرة أخرى.');
@@ -748,15 +748,15 @@ export async function initStudentPage() {
         }
         
         if (errorCode === 'out_of_range') {
-          showDenied('أنت خارج نطاق الجامعة.');
+          showDenied('الموقع الحالي غير مناسب للتسجيل.');
           return;
         }
         if (errorCode === 'device_in_use') {
-          notifications.error(loginResult.error.message || 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+          notifications.error(loginResult.error.message || 'هذا الجهاز مستخدم من طالب آخر اليوم.');
           return;
         }
         if (errorCode === 'device_mismatch') {
-          notifications.error(loginResult.error.message || 'تم تغيير الجهاز، مطلوب التحقق.');
+          notifications.error(loginResult.error.message || 'تم تغيير الجهاز، مطلوب التحقق قبل التسجيل.');
           return;
         }
         
@@ -789,7 +789,7 @@ export async function initStudentPage() {
         return;
       } else {
         if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
-          showDuplicate();
+          showDuplicate('تم تسجيل حضورك مسبقًا لهذا اليوم. لا يمكنك التسجيل مرة أخرى اليوم.');
           return;
         }
         notifications.error(apiResult.error?.message || 'فشل إرسال بيانات الحضور. حاول مرة أخرى.');

@@ -782,8 +782,13 @@ body[data-page="student-index"] {
 .session-info {
   text-align: center;
   font-weight: 700;
-  color: var(--navy-900);
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--navy-900), var(--navy-800));
+  border: 1px solid rgba(23, 35, 63, 0.08);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
   min-height: 1.8em;
+  box-shadow: var(--shadow-card);
 }
 
 .student-panel {
