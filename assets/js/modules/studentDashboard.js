@@ -301,26 +301,26 @@ export async function initStudentDashboardPage() {
         const activeSessionRes = await sessionService.getActiveSession();
         const activeSession = activeSessionRes?.status === 'success' ? activeSessionRes.data : null;
 
+        // Pull existing student session info early so we can decide behavior.
+        const existingSessionRes = await studentService.getStudentSession({ studentId: student.studentId });
+        const existingSessionData = existingSessionRes?.status === 'success' ? existingSessionRes.data : null;
+        const currentSessionToken = localStorage.getItem('student_session_token');
+        const existingSessionToken = existingSessionData?.session_token || existingSessionData?.sessionToken || '';
+
+        if (activeSession && existingSessionData && existingSessionToken && currentSessionToken && existingSessionToken === currentSessionToken) {
+          notifications.warning('جلسة الحضور الحالية ما زالت فعّالة، لا يمكنك تسجيل حضور جديد حتى تنتهي الجلسة الحالية.');
+          notifications.loading(false);
+          checkInBtn.disabled = true;
+          checkInBtn.textContent = 'جلسة الحضور جارية';
+          return;
+        }
+
         if (!activeSession) {
           notifications.error('لا توجد محاضرة حالية.');
           notifications.loading(false);
           checkInBtn.disabled = false;
           return;
         }
-
-        // Pull existing student session info early so we can decide behavior
-        const existingSessionRes = await studentService.getStudentSession({ studentId: student.studentId });
-        const existingSessionData = existingSessionRes?.status === 'success' ? existingSessionRes.data : null;
-        const currentSessionToken = localStorage.getItem('student_session_token');
-        const existingSessionToken = existingSessionData?.session_token || existingSessionData?.sessionToken || '';
-
-        // If session has explicit time bounds (start/end/expires), respect them.
-        // Otherwise (no time info in DB) treat registration as open while the
-        // daily active session exists — i.e., don't show "registration ended".
-        const hasTimeBounds = !!(
-          activeSession && (
-            activeSession.start_time || activeSession.startTime || activeSession.end_time || activeSession.endTime || activeSession.expires_at || activeSession.expiresAt
-          )
         );
 
         if (hasTimeBounds && !isLectureRegistrationOpen(activeSession)) {

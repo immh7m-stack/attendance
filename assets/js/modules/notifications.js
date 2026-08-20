@@ -92,6 +92,10 @@ export function success(message) {
   notificationService.showToast(message, 'success');
 }
 
+export function warning(message) {
+  notificationService.showToast(message, 'warning');
+}
+
 export function error(message) {
   notificationService.showToast(message, 'error');
 }
