@@ -46,10 +46,32 @@ function getEgyptDateString(date = new Date()) {
   }).format(date);
 }
 
+function toCairoDate(value) {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/.test(trimmed)) {
+      const isoValue = trimmed.replace(' ', 'T');
+      const parsed = new Date(isoValue);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    }
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatDatePart(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = toCairoDate(value);
+  if (!date) return '—';
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(date);
 }
 
@@ -58,9 +80,8 @@ function hasCheckedInToday(attendanceRecords = [], todayDate) {
 }
 
 function formatTimePart(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = toCairoDate(value);
+  if (!date) return '—';
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Africa/Cairo',
     hour: '2-digit',

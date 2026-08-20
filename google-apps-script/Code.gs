@@ -90,9 +90,28 @@ function getLocationSettings() {
   }, {});
 }
 
+function sortActiveSessionsByRecency(rows) {
+  return rows.slice().sort((a, b) => {
+    const aTime = new Date(String(getRowValue(a, 'updated_at') || getRowValue(a, 'created_at') || 0)).getTime();
+    const bTime = new Date(String(getRowValue(b, 'updated_at') || getRowValue(b, 'created_at') || 0)).getTime();
+    return bTime - aTime;
+  });
+}
+
+function getActiveSessionsForStudent(studentId, loginDate = getTodayDate()) {
+  const rows = getEntityRows(SHEET_CONFIG.student_sessions, { student_id: studentId, login_date: loginDate });
+  return rows.filter((session) => isSessionActive(session));
+}
+
+function getActiveSessionsForDevice(deviceFingerprint, loginDate = getTodayDate()) {
+  const rows = getEntityRows(SHEET_CONFIG.student_sessions, { device_fingerprint: deviceFingerprint, login_date: loginDate });
+  return rows.filter((session) => isSessionActive(session));
+}
+
 function findStudentSessionByStudentId(studentId) {
-  const sessions = getEntityRows(SHEET_CONFIG.student_sessions, { student_id: studentId, login_date: getTodayDate() });
-  return sessions.find((session) => String(getRowValue(session, 'active')).toLowerCase() === 'true') || null;
+  const activeSessions = getActiveSessionsForStudent(studentId);
+  if (!activeSessions.length) return null;
+  return sortActiveSessionsByRecency(activeSessions)[0];
 }
 
 function isSessionActive(session) {
@@ -104,21 +123,57 @@ function isSessionActive(session) {
 
 function findStudentSessionByToken(token) {
   const sessions = getEntityRows(SHEET_CONFIG.student_sessions, { session_token: token });
-  const session = sessions[0] || null;
-  return isSessionActive(session) ? session : null;
+  const activeSessions = sessions.filter((session) => isSessionActive(session));
+  return activeSessions[0] || null;
 }
 
 function findStudentSessionByFingerprint(fingerprint) {
-  const sessions = getEntityRows(SHEET_CONFIG.student_sessions, { device_fingerprint: fingerprint, login_date: getTodayDate() });
-  return sessions.find((session) => isSessionActive(session)) || null;
+  const activeSessions = getActiveSessionsForDevice(fingerprint);
+  if (!activeSessions.length) return null;
+  return sortActiveSessionsByRecency(activeSessions)[0];
+}
+
+function closeDuplicateActiveSessions(rows, keep) {
+  if (!Array.isArray(rows) || !rows.length) return;
+  const now = new Date().toISOString();
+  rows.filter((row) => row !== keep).forEach((row) => {
+    updateRow(SHEET_CONFIG.student_sessions, row.__rowNum, Object.assign({}, row, {
+      active: false,
+      updated_at: now
+    }));
+  });
 }
 
 function createOrUpdateStudentSession(sessionData) {
-  const existing = findStudentSessionByStudentId(sessionData.student_id);
-  if (existing) {
-    const updated = Object.assign({}, existing, sessionData, { updated_at: new Date().toISOString() });
-    return updateRow(SHEET_CONFIG.student_sessions, existing.__rowNum, updated);
+  const studentId = String(sessionData.student_id || '').trim();
+  const fingerprint = String(sessionData.device_fingerprint || '').trim();
+  const today = getTodayDate();
+  const activeByStudent = getActiveSessionsForStudent(studentId, today);
+  const now = new Date().toISOString();
+
+  if (activeByStudent.length > 1) {
+    const newest = sortActiveSessionsByRecency(activeByStudent)[0];
+    closeDuplicateActiveSessions(activeByStudent, newest);
+    const merged = Object.assign({}, newest, sessionData, { updated_at: now });
+    updateRow(SHEET_CONFIG.student_sessions, newest.__rowNum, merged);
+    return merged;
   }
+
+  if (activeByStudent.length === 1) {
+    const existing = activeByStudent[0];
+    const updated = Object.assign({}, existing, sessionData, { updated_at: now });
+    updateRow(SHEET_CONFIG.student_sessions, existing.__rowNum, updated);
+    return updated;
+  }
+
+  if (fingerprint) {
+    const activeByFingerprint = getActiveSessionsForDevice(fingerprint, today);
+    if (activeByFingerprint.length > 1) {
+      const newest = sortActiveSessionsByRecency(activeByFingerprint)[0];
+      closeDuplicateActiveSessions(activeByFingerprint, newest);
+    }
+  }
+
   appendRow(SHEET_CONFIG.student_sessions, sessionData);
   return sessionData;
 }
@@ -251,6 +306,15 @@ function handleStudentLogin(body) {
   // ========== التحقق من جهاز آخر يستخدم نفس الـ Fingerprint ==========
   const collision = findStudentSessionByFingerprint(deviceFingerprint);
   if (collision && String(getRowValue(collision, 'student_id')) !== studentId) {
+    const repeatedRows = getActiveSessionsForDevice(deviceFingerprint, getTodayDate());
+    closeDuplicateActiveSessions(repeatedRows, collision);
+    return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+  }
+
+  // منع أي تسجيل إضافي لنفس الجهاز في اليوم مع طالب آخر
+  const sameDeviceSessions = getActiveSessionsForDevice(deviceFingerprint, getTodayDate());
+  if (sameDeviceSessions.length && sameDeviceSessions.some((row) => String(getRowValue(row, 'student_id') || '').trim() !== studentId)) {
+    closeDuplicateActiveSessions(sameDeviceSessions, sameDeviceSessions.find((row) => String(getRowValue(row, 'student_id') || '').trim() === studentId) || sameDeviceSessions[0]);
     return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
   }
 
