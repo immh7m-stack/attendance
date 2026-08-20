@@ -386,30 +386,35 @@ export async function initStudentPage() {
 
   async function initializeStudentForm() {
     const savedToken = localStorage.getItem('student_session_token');
+    
+    // إذا كان هناك token محفوظ، تحقق من أن الـ Session نشطة
     if (savedToken) {
       const sessionRes = await studentService.getStudentSession({ sessionToken: savedToken });
       if (sessionRes?.status === 'success' && sessionRes.data) {
+        // الـ Session نشطة - يتم توجيه الطالب للـ dashboard
         localStorage.setItem('student_session_token', sessionRes.data.session_token || sessionRes.data.sessionToken || '');
         window.location.href = 'dashboard.html';
         return;
       }
+      // Token غير صحيح أو session منتهية
       localStorage.removeItem('student_session_token');
     }
 
-    // تحميل الأقسام والمستويات أولاً
+    // تحميل الأقسام والمستويات
     await loadDropdownOptions();
 
-    // التحقق من وجود جهاز مسجل بدون الانتقال للـ dashboard
+    // التحقق من جهاز مسجل
     const fingerprint = getDeviceFingerprint();
     let registeredStudent = null;
     if (fingerprint) {
       const deviceSessionRes = await studentService.getStudentSession({ deviceFingerprint: fingerprint });
       if (deviceSessionRes?.status === 'success' && deviceSessionRes.data) {
-        // عرض بيانات الطالب المسجل في النموذج بدلاً من الانتقال للـ dashboard
+        // جهاز مسجل بالفعل
         registeredStudent = await populateFormWithRegisteredDevice(deviceSessionRes.data);
       }
     }
 
+    // جلب المحاضرة النشطة
     const activeSessionRes = await sessionService.getActiveSession();
     if (activeSessionRes?.status === 'success' && activeSessionRes.data) {
       currentLecture = activeSessionRes.data;
@@ -422,6 +427,7 @@ export async function initStudentPage() {
       form.querySelector('button[type="submit"]').disabled = true;
     }
 
+    // التحقق من الموقع
     const canProceed = await checkLocation();
     if (!canProceed) {
       return;
@@ -458,6 +464,7 @@ export async function initStudentPage() {
       level: document.querySelector('#level').value,
     };
 
+    // ========== التحقق من صحة البيانات ==========
     if (!validation.validateAttendance(student)) {
       notifications.loading(false);
       setState('attendance', { validationErrors: ['يرجى إكمال جميع الحقول بشكل صحيح.'] });
@@ -468,22 +475,6 @@ export async function initStudentPage() {
     if (!student.department || !student.level) {
       notifications.loading(false);
       notifications.error('يرجى اختيار القسم والمستوى من القائمة الثابتة.');
-      return;
-    }
-
-    const existingSessionRes = await studentService.getStudentSession({ studentId: student.studentId });
-    if (existingSessionRes?.status === 'success' && existingSessionRes.data) {
-      // تحذير: الطالب لديه جلسة قائمة بالفعل
-      notifications.loading(false);
-      notifications.warning(
-        'أنت قد قمت بالفعل بتسجيل الحضور من هذا الجهاز. يمكنك الذهاب إلى لوحة البيانات أو تحديث البيانات ورفع الحضور مجددًا.'
-      );
-      
-      // حفظ البيانات المقترحة للسماح بتحديثها إذا أراد الطالب
-      const token = existingSessionRes.data.session_token || existingSessionRes.data.sessionToken || '';
-      localStorage.setItem('student_session_token', token);
-      
-      // إذا رغب الطالب بالمتابعة، سيضغط زر تسجيل الحضور مرة أخرى بعد رؤية التحذير
       return;
     }
 
@@ -500,6 +491,7 @@ export async function initStudentPage() {
       return;
     }
 
+    // ========== التحقق من الموقع ==========
     const lectureLatitude = Number(currentLecture.latitude || 0);
     const lectureLongitude = Number(currentLecture.longitude || 0);
     const gpsRadius = Number(currentLecture.radius || APP_CONFIG.gpsRadiusMeters);
@@ -507,16 +499,12 @@ export async function initStudentPage() {
     if (!Number.isFinite(lectureLatitude) || !Number.isFinite(lectureLongitude) || lectureLatitude === 0 || lectureLongitude === 0) {
       notifications.loading(false);
       notifications.error('إعدادات مكان المحاضرة غير مكتملة. تواصل مع الإدارة.');
-      showError();
       return;
     }
 
     const radiusCheck = await locationModule.isInsideRadius(
       currentLocation,
-      {
-        latitude: lectureLatitude,
-        longitude: lectureLongitude
-      },
+      { latitude: lectureLatitude, longitude: lectureLongitude },
       gpsRadius
     );
 
@@ -527,68 +515,208 @@ export async function initStudentPage() {
       return;
     }
 
-    const fingerprint = getDeviceFingerprint();
-    const publicIp = await getPublicIp();
+    // ========== البحث عن بيانات الطالب الموجودة ==========
+    const existingStudentRes = await studentService.getStudent(student.studentId);
+    const existingStudent = existingStudentRes?.status === 'success' ? existingStudentRes.data : null;
 
-    const selectedDepartmentOption = departmentSelect?.selectedOptions?.[0];
-    const departmentName = selectedDepartmentOption?.dataset?.name || departmentSelect?.value || '';
-    const loginPayload = {
-      studentId: student.studentId,
-      name: student.name,
-      department: departmentName,
-      level: student.level,
-      sessionId: currentLecture.session_id || '',
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-      deviceFingerprint: fingerprint,
-      publicIp,
-      userAgent: navigator.userAgent
-    };
+    // ========== التحقق من الـ Session النشطة ==========
+    const existingSessionRes = await studentService.getStudentSession({ studentId: student.studentId });
+    const existingSession = existingSessionRes?.status === 'success' ? existingSessionRes.data : null;
 
-    const loginResult = await studentService.loginStudent(loginPayload);
-    if (loginResult?.status !== 'success') {
+    // إذا كان لدى الطالب Session نشطة: عدم السماح بـ login جديد
+    if (existingSession) {
       notifications.loading(false);
-      const errorCode = loginResult?.error?.code;
-      if (errorCode === 'out_of_range') {
-        locationModule.showLocationStatus('أنت خارج نطاق الجامعة.', false);
-        showDenied();
-        return;
-      }
-      if (errorCode === 'device_in_use') {
-        notifications.error(loginResult.error.message || 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
-        return;
-      }
-      if (errorCode === 'device_mismatch') {
-        notifications.error(loginResult.error.message || 'تم تغيير الجهاز، مطلوب التحقق.');
-        return;
-      }
-      notifications.error(loginResult?.error?.message || 'تعذر تسجيل الدخول. حاول مرة أخرى.');
+      notifications.warning(
+        'لقد قمت بتسجيل الدخول من قبل، جاري توجيهك إلى الصفحة الرئيسية...'
+      );
+
+      // حفظ الـ Token وتحضير المعلومات
+      const token = existingSession.session_token || existingSession.sessionToken || '';
+      localStorage.setItem('student_session_token', token);
+
+      // انتظر 5 ثوانٍ لإظهار الرسالة ثم توجيه الطالب
+      setTimeout(() => {
+        window.location.href = 'dashboard.html';
+      }, 5000);
       return;
     }
 
-    const studentSession = loginResult.data;
-    setState('studentSession', studentSession);
-    localStorage.setItem('student_session_token', studentSession.session_token || studentSession.sessionToken || '');
+    // ========== حالة 1: الطالب موجود ولديه Session منتهية ==========
+    if (existingStudent && !existingSession) {
+      // إنشاء login جديد وتسجيل حضور جديد
+      const fingerprint = getDeviceFingerprint();
+      const publicIp = await getPublicIp();
 
-    const attendanceLocation = {
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-      distance: Math.round(radiusCheck.distance)
-    };
+      const selectedDepartmentOption = departmentSelect?.selectedOptions?.[0];
+      const departmentName = selectedDepartmentOption?.dataset?.name || student.department || '';
 
-    const attendanceData = generateAttendanceObject(student, studentSession, attendanceLocation);
-    const apiResult = await submitAttendance(attendanceData);
-    notifications.loading(false);
+      const loginPayload = {
+        studentId: student.studentId,
+        name: student.name,
+        department: departmentName,
+        level: student.level,
+        sessionId: currentLecture.session_id || '',
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        deviceFingerprint: fingerprint,
+        publicIp,
+        userAgent: navigator.userAgent
+      };
 
-    if (apiResult.status === 'success') {
-      setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
-      showSuccess();
-    } else {
-      if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
-        showDuplicate();
+      const loginResult = await studentService.loginStudent(loginPayload);
+      if (loginResult?.status !== 'success') {
+        notifications.loading(false);
+        const errorCode = loginResult?.error?.code;
+        
+        if (errorCode === 'active_session_exists') {
+          // الطالب لديه session نشطة بالفعل
+          notifications.warning(
+            'لقد قمت بتسجيل الدخول من قبل، جاري توجيهك إلى الصفحة الرئيسية...'
+          );
+          
+          // حفظ البيانات وتوجيه الطالب
+          const existingSessionData = loginResult.error?.existingSession;
+          if (existingSessionData?.session_token) {
+            localStorage.setItem('student_session_token', existingSessionData.session_token);
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 5000);
+          }
+          return;
+        }
+        
+        if (errorCode === 'out_of_range') {
+          showDenied('أنت خارج نطاق الجامعة.');
+          return;
+        }
+        if (errorCode === 'device_mismatch') {
+          notifications.error(loginResult.error.message || 'تم تغيير الجهاز، مطلوب التحقق.');
+          return;
+        }
+        if (errorCode === 'device_in_use') {
+          notifications.error(loginResult.error.message || 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+          return;
+        }
+        
+        notifications.error(loginResult?.error?.message || 'تعذر تسجيل الدخول. حاول مرة أخرى.');
         return;
       }
-      notifications.error(apiResult.error?.message || 'فشل إرسال بيانات الحضور. حاول مرة أخرى.');
+
+      const studentSession = loginResult.data;
+      setState('studentSession', studentSession);
+      localStorage.setItem('student_session_token', studentSession.session_token || studentSession.sessionToken || '');
+
+      // تسجيل الحضور
+      const attendanceLocation = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        distance: Math.round(radiusCheck.distance)
+      };
+
+      const attendanceData = generateAttendanceObject(student, studentSession, attendanceLocation);
+      const apiResult = await submitAttendance(attendanceData);
+      notifications.loading(false);
+
+      if (apiResult.status === 'success') {
+        setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
+        showSuccess();
+      } else {
+        if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
+          showDuplicate();
+          return;
+        }
+        notifications.error(apiResult.error?.message || 'فشل إرسال بيانات الحضور. حاول مرة أخرى.');
+      }
+      return;
+    }
+
+    // ========== حالة 2: الطالب جديد تماماً ==========
+    if (!existingStudent) {
+      // إنشاء بيانات الطالب الجديدة
+      const fingerprint = getDeviceFingerprint();
+      const publicIp = await getPublicIp();
+
+      const selectedDepartmentOption = departmentSelect?.selectedOptions?.[0];
+      const departmentName = selectedDepartmentOption?.dataset?.name || student.department || '';
+
+      const loginPayload = {
+        studentId: student.studentId,
+        name: student.name,
+        department: departmentName,
+        level: student.level,
+        sessionId: currentLecture.session_id || '',
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        deviceFingerprint: fingerprint,
+        publicIp,
+        userAgent: navigator.userAgent
+      };
+
+      const loginResult = await studentService.loginStudent(loginPayload);
+      if (loginResult?.status !== 'success') {
+        notifications.loading(false);
+        const errorCode = loginResult?.error?.code;
+        
+        if (errorCode === 'active_session_exists') {
+          // الطالب لديه session نشطة بالفعل
+          notifications.warning(
+            'لقد قمت بتسجيل الدخول من قبل، جاري توجيهك إلى الصفحة الرئيسية...'
+          );
+          
+          // حفظ البيانات وتوجيه الطالب
+          const existingSessionData = loginResult.error?.existingSession;
+          if (existingSessionData?.session_token) {
+            localStorage.setItem('student_session_token', existingSessionData.session_token);
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 5000);
+          }
+          return;
+        }
+        
+        if (errorCode === 'out_of_range') {
+          showDenied('أنت خارج نطاق الجامعة.');
+          return;
+        }
+        if (errorCode === 'device_in_use') {
+          notifications.error(loginResult.error.message || 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+          return;
+        }
+        if (errorCode === 'device_mismatch') {
+          notifications.error(loginResult.error.message || 'تم تغيير الجهاز، مطلوب التحقق.');
+          return;
+        }
+        
+        notifications.error(loginResult?.error?.message || 'تعذر تسجيل الدخول. حاول مرة أخرى.');
+        return;
+      }
+
+      const studentSession = loginResult.data;
+      setState('studentSession', studentSession);
+      localStorage.setItem('student_session_token', studentSession.session_token || studentSession.sessionToken || '');
+
+      // تسجيل الحضور
+      const attendanceLocation = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        distance: Math.round(radiusCheck.distance)
+      };
+
+      const attendanceData = generateAttendanceObject(student, studentSession, attendanceLocation);
+      const apiResult = await submitAttendance(attendanceData);
+      notifications.loading(false);
+
+      if (apiResult.status === 'success') {
+        setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
+        showSuccess();
+      } else {
+        if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
+          showDuplicate();
+          return;
+        }
+        notifications.error(apiResult.error?.message || 'فشل إرسال بيانات الحضور. حاول مرة أخرى.');
+      }
+      return;
     }
   });
 

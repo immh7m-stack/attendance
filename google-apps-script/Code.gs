@@ -225,32 +225,36 @@ function handleStudentLogin(body) {
     appendRow(SHEET_CONFIG.students, student);
   }
 
+  // ========== التحقق من الـ Session النشطة الموجودة ==========
   const existingByStudent = findStudentSessionByStudentId(studentId);
+  if (existingByStudent && isSessionActive(existingByStudent)) {
+    // لا يُسمح بـ login جديد طالما هناك session نشطة
+    return createError('active_session_exists', 
+      'لديك جلسة نشطة بالفعل، يرجى الانتظار حتى انتهاء الجلسة أو الاتصال بالإدارة.', 
+      { 
+        existingSession: {
+          session_token: getRowValue(existingByStudent, 'session_token'),
+          expires_at: getRowValue(existingByStudent, 'expires_at'),
+          login_date: getRowValue(existingByStudent, 'login_date')
+        }
+      });
+  }
+
+  // إذا كانت session قديمة (منتهية)، يتم السماح بـ login جديد
   if (existingByStudent) {
     const existingFingerprint = String(getRowValue(existingByStudent, 'device_fingerprint') || '').trim();
     if (existingFingerprint !== deviceFingerprint && !allowMultipleDevices) {
       return createError('device_mismatch', 'تم تغيير الجهاز بشكل كبير، مطلوب التحقق.', { allowMultipleDevices });
     }
-    const updatedSession = Object.assign({}, existingByStudent, {
-      device_fingerprint: deviceFingerprint,
-      public_ip: publicIp,
-      user_agent: userAgent,
-      latitude,
-      longitude,
-      student_department: departmentName,
-      student_level: levelName,
-      session_id: activeSession ? String(getRowValue(activeSession, 'session_id') || '') : String(body.sessionId || ''),
-      updated_at: new Date().toISOString()
-    });
-    updateRow(SHEET_CONFIG.student_sessions, existingByStudent.__rowNum, updatedSession);
-    return createSuccess(updatedSession);
   }
 
+  // ========== التحقق من جهاز آخر يستخدم نفس الـ Fingerprint ==========
   const collision = findStudentSessionByFingerprint(deviceFingerprint);
   if (collision && String(getRowValue(collision, 'student_id')) !== studentId) {
     return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
   }
 
+  // ========== إنشاء Session جديدة ==========
   const sessionToken = generateId('student_session');
   const now = new Date();
   const expiresAt = new Date(now.getTime() + (Number(locationSettings.session_duration_hours || 24) * 3600000)).toISOString();
