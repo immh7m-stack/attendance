@@ -199,6 +199,7 @@ export async function initStudentPage() {
   let currentLecture = null;
   let checkedLocation = null;
   let locationGateAllowed = false;
+  let isRegisteredDevice = false; // متغير لتتبع إذا كان الجهاز مسجل
 
   function getStoredLocationGate() {
     try {
@@ -326,6 +327,63 @@ export async function initStudentPage() {
     }
   }
 
+  async function populateFormWithRegisteredDevice(deviceSession) {
+    // جلب بيانات الطالب المسجل
+    const studentRes = await studentService.getStudent(deviceSession.student_id);
+    if (studentRes?.status === 'success' && studentRes.data) {
+      const student = studentRes.data;
+      const nameInput = document.querySelector('#studentName');
+      const idInput = document.querySelector('#studentId');
+      const departmentInput = document.querySelector('#department');
+      const levelInput = document.querySelector('#level');
+      const goDashboardBtn = document.getElementById('goDashboardBtn');
+
+      // ملء النموذج ببيانات الطالب
+      if (idInput) idInput.value = student.studentId || '';
+      if (nameInput) nameInput.value = student.name || '';
+      
+      if (departmentInput) {
+        const option = Array.from(departmentInput.options).find((opt) => opt.text === student.department);
+        if (option) {
+          departmentInput.value = option.value;
+          await loadLevelOptions(option.value);
+          if (levelInput) levelInput.value = student.level || '';
+        }
+      }
+
+      // تحديد أن الجهاز مسجل
+      isRegisteredDevice = true;
+
+      // تحميل بيانات الجلسة والإحصائيات
+      await loadStudentSessionAndStats(student.studentId, student);
+
+      // عرض الزر للذهاب للـ dashboard وإضافة معالج له
+      if (goDashboardBtn) {
+        goDashboardBtn.style.display = 'block';
+        goDashboardBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const token = localStorage.getItem('student_session_token');
+          if (token) {
+            window.location.href = 'dashboard.html';
+          }
+        });
+      }
+
+      // عرض رسالة تخبر الطالب أن الجهاز مسجل
+      if (sessionInfoContainer) {
+        sessionInfoContainer.innerHTML = `
+          <div style="background: #e8f5e9; padding: 12px; border-radius: 4px; border-left: 4px solid #4caf50;">
+            <strong>✓ هذا الجهاز مسجل</strong><br/>
+            بيانات الطالب <strong>${student.name}</strong> محفوظة. يمكنك تعديل البيانات إذا لزم الأمر أو تسجيل الحضور مباشرة.
+          </div>
+        `;
+      }
+      
+      return student;
+    }
+    return null;
+  }
+
   async function initializeStudentForm() {
     const savedToken = localStorage.getItem('student_session_token');
     if (savedToken) {
@@ -338,26 +396,28 @@ export async function initStudentPage() {
       localStorage.removeItem('student_session_token');
     }
 
+    // تحميل الأقسام والمستويات أولاً
+    await loadDropdownOptions();
+
+    // التحقق من وجود جهاز مسجل بدون الانتقال للـ dashboard
     const fingerprint = getDeviceFingerprint();
+    let registeredStudent = null;
     if (fingerprint) {
       const deviceSessionRes = await studentService.getStudentSession({ deviceFingerprint: fingerprint });
       if (deviceSessionRes?.status === 'success' && deviceSessionRes.data) {
-        localStorage.setItem('student_session_token', deviceSessionRes.data.session_token || deviceSessionRes.data.sessionToken || '');
-        window.location.href = 'dashboard.html';
-        return;
+        // عرض بيانات الطالب المسجل في النموذج بدلاً من الانتقال للـ dashboard
+        registeredStudent = await populateFormWithRegisteredDevice(deviceSessionRes.data);
       }
     }
-
-    await loadDropdownOptions();
 
     const activeSessionRes = await sessionService.getActiveSession();
     if (activeSessionRes?.status === 'success' && activeSessionRes.data) {
       currentLecture = activeSessionRes.data;
-      if (sessionInfoContainer) {
+      if (sessionInfoContainer && !registeredStudent) {
         const subject = currentLecture.subject_name || currentLecture.session_id || 'المحاضرة الحالية';
         sessionInfoContainer.textContent = `المحاضرة الحالية: ${subject}. جارٍ التحقق من الموقع...`;
       }
-    } else if (sessionInfoContainer) {
+    } else if (sessionInfoContainer && !registeredStudent) {
       sessionInfoContainer.textContent = 'لا توجد محاضرة حالية. تواصل مع الإدارة.';
       form.querySelector('button[type="submit"]').disabled = true;
     }
@@ -413,8 +473,17 @@ export async function initStudentPage() {
 
     const existingSessionRes = await studentService.getStudentSession({ studentId: student.studentId });
     if (existingSessionRes?.status === 'success' && existingSessionRes.data) {
-      localStorage.setItem('student_session_token', existingSessionRes.data.session_token || existingSessionRes.data.sessionToken || '');
-      window.location.href = 'dashboard.html';
+      // تحذير: الطالب لديه جلسة قائمة بالفعل
+      notifications.loading(false);
+      notifications.warning(
+        'أنت قد قمت بالفعل بتسجيل الحضور من هذا الجهاز. يمكنك الذهاب إلى لوحة البيانات أو تحديث البيانات ورفع الحضور مجددًا.'
+      );
+      
+      // حفظ البيانات المقترحة للسماح بتحديثها إذا أراد الطالب
+      const token = existingSessionRes.data.session_token || existingSessionRes.data.sessionToken || '';
+      localStorage.setItem('student_session_token', token);
+      
+      // إذا رغب الطالب بالمتابعة، سيضغط زر تسجيل الحضور مرة أخرى بعد رؤية التحذير
       return;
     }
 
