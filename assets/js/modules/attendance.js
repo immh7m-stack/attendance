@@ -484,6 +484,20 @@ export async function initStudentPage() {
       return;
     }
 
+    const fingerprint = getDeviceFingerprint();
+    if (fingerprint) {
+      const deviceSessionRes = await studentService.getStudentSession({ deviceFingerprint: fingerprint });
+      const deviceSession = deviceSessionRes?.status === 'success' ? deviceSessionRes.data : null;
+      const deviceStudentId = String(deviceSession?.student_id || deviceSession?.studentId || '').trim();
+      const deviceStudentName = deviceSession?.student_name || deviceSession?.name || 'طالب آخر';
+
+      if (deviceSession && deviceStudentId && deviceStudentId !== student.studentId) {
+        notifications.loading(false);
+        notifications.error(`هذا الجهاز مسجل بالفعل باسم ${deviceStudentName}، ولا يمكن استخدام نفس الهاتف لتسجيل طالب آخر في نفس الوقت.`);
+        return;
+      }
+    }
+
     const currentLocation = checkedLocation || null;
     if (!currentLocation) {
       notifications.loading(false);

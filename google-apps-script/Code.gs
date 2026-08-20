@@ -283,7 +283,7 @@ function handleStudentLogin(body) {
   // ========== التحقق من الـ Session النشطة الموجودة ==========
   const existingByStudent = findStudentSessionByStudentId(studentId);
   if (existingByStudent && isSessionActive(existingByStudent)) {
-    // لا يُسمح بـ login جديد طالما هناك session نشطة
+    // لا يُسمح بـ login جديد طالما هناك session نشطة لنفس الطالب
     return createError('active_session_exists', 
       'لديك جلسة نشطة بالفعل، يرجى الانتظار حتى انتهاء الجلسة أو الاتصال بالإدارة.', 
       { 
@@ -303,19 +303,19 @@ function handleStudentLogin(body) {
     }
   }
 
-  // ========== التحقق من جهاز آخر يستخدم نفس الـ Fingerprint ==========
-  const collision = findStudentSessionByFingerprint(deviceFingerprint);
-  if (collision && String(getRowValue(collision, 'student_id')) !== studentId) {
+  // ========== منع نفس الجهاز من تسجيل طالب آخر أثناء وجود جلسة نشطة ==========
+  const activeDeviceSession = findStudentSessionByFingerprint(deviceFingerprint);
+  if (activeDeviceSession && String(getRowValue(activeDeviceSession, 'student_id')) !== studentId) {
     const repeatedRows = getActiveSessionsForDevice(deviceFingerprint, getTodayDate());
-    closeDuplicateActiveSessions(repeatedRows, collision);
-    return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+    closeDuplicateActiveSessions(repeatedRows, activeDeviceSession);
+    return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم، ولا يمكن تسجيل طالب مختلف في نفس الجهاز أثناء وجود جلسة نشطة.');
   }
 
   // منع أي تسجيل إضافي لنفس الجهاز في اليوم مع طالب آخر
   const sameDeviceSessions = getActiveSessionsForDevice(deviceFingerprint, getTodayDate());
   if (sameDeviceSessions.length && sameDeviceSessions.some((row) => String(getRowValue(row, 'student_id') || '').trim() !== studentId)) {
     closeDuplicateActiveSessions(sameDeviceSessions, sameDeviceSessions.find((row) => String(getRowValue(row, 'student_id') || '').trim() === studentId) || sameDeviceSessions[0]);
-    return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم.');
+    return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب آخر اليوم، ولا يمكن تسجيل طالب مختلف في نفس الجهاز أثناء وجود جلسة نشطة.');
   }
 
   // ========== إنشاء Session جديدة ==========

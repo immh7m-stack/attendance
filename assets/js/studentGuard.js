@@ -39,7 +39,16 @@ async function restoreByDeviceFingerprint() {
   try {
     const response = await studentService.getStudentSession({ deviceFingerprint: fingerprint });
     if (response?.status === 'success' && response.data) {
-      localStorage.setItem(STUDENT_TOKEN_KEY, response.data.session_token || response.data.sessionToken || '');
+      const session = response.data;
+      const expiresAt = new Date(session.expires_at || session.expiresAt || 0).getTime();
+      const isStillValid = Number.isFinite(expiresAt) && expiresAt > Date.now();
+
+      if (!isStillValid) {
+        localStorage.removeItem(STUDENT_TOKEN_KEY);
+        return false;
+      }
+
+      localStorage.setItem(STUDENT_TOKEN_KEY, session.session_token || session.sessionToken || '');
       window.location.href = 'dashboard.html';
       return true;
     }
