@@ -6,17 +6,21 @@ const STUDENT_TOKEN_KEY = 'student_session_token';
 const protectedPages = ['dashboard.html'];
 const pageName = (window.location.pathname.match(/[^/]+$/) || [''])[0] || 'index.html';
 
-function redirectToIndex(clearToken = false) {
+async function redirectToIndex(clearToken = false) {
   if (clearToken) {
     localStorage.removeItem(STUDENT_TOKEN_KEY);
   }
+  await showRedirectLoader({
+    title: 'جارٍ إعادة التوجيه',
+    subtitle: 'يتم تجهيز الصفحة الرئيسية للطالب...'
+  });
   window.location.href = 'index.html';
 }
 
 async function validateStudentSession() {
   const token = localStorage.getItem(STUDENT_TOKEN_KEY);
   if (!token) {
-    redirectToIndex();
+    await redirectToIndex();
     return false;
   }
 
@@ -29,7 +33,7 @@ async function validateStudentSession() {
     console.warn('Student session validation failed:', error);
   }
 
-  redirectToIndex(true);
+  await redirectToIndex(true);
   return false;
 }
 

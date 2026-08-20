@@ -1,5 +1,6 @@
 import { authService } from '../services/authService.js';
 import { setState } from '../state.js';
+import { showRedirectLoader } from './redirectLoader.js';
 
 const AUTH_KEY = 'admin_session';
 
@@ -27,8 +28,12 @@ export async function login(username, password) {
   return null;
 }
 
-export function logout() {
+export async function logout() {
   removeSession();
+  await showRedirectLoader({
+    title: 'جارٍ تسجيل الخروج',
+    subtitle: 'يتم تجهيز الصفحة وعودة المستخدم إلى تسجيل الدخول.'
+  });
   window.location.href = 'login.html';
 }
 
@@ -43,6 +48,10 @@ export function initAuthPage() {
     const password = document.querySelector('#password').value.trim();
     const session = await login(username, password);
     if (session) {
+      await showRedirectLoader({
+        title: 'مرحباً بك',
+        subtitle: 'جارٍ تجهيز لوحة الإدارة...' 
+      });
       window.location.href = 'dashboard.html';
     } else if (errorElement) {
       errorElement.textContent = 'بيانات الدخول غير صحيحة.';

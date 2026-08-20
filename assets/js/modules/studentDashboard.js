@@ -246,12 +246,20 @@ export async function initStudentDashboardPage() {
 
   const token = localStorage.getItem('student_session_token');
   if (!token) {
+    await showRedirectLoader({
+      title: 'جارٍ التوجيه إلى صفحة تسجيل الحضور',
+      subtitle: 'يتم تجهيز الصفحة الرئيسية للطالب...'
+    });
     window.location.href = 'index.html';
     return;
   }
 
   const sessionRes = await studentService.getStudentSession({ sessionToken: token });
   if (sessionRes?.status !== 'success' || !sessionRes.data) {
+    await showRedirectLoader({
+      title: 'جارٍ التوجيه إلى صفحة تسجيل الحضور',
+      subtitle: 'يتم تجهيز الصفحة الرئيسية للطالب...'
+    });
     window.location.href = 'index.html';
     return;
   }
@@ -264,6 +272,10 @@ export async function initStudentDashboardPage() {
   const attendanceRes = await studentService.getStudentAttendance({ studentId });
 
   if (studentRes?.status !== 'success') {
+    await showRedirectLoader({
+      title: 'جارٍ التوجيه إلى صفحة تسجيل الحضور',
+      subtitle: 'يتم تجهيز الصفحة الرئيسية للطالب...'
+    });
     window.location.href = 'index.html';
     return;
   }

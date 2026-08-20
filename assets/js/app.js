@@ -20,6 +20,7 @@ import { authService } from './services/authService.js';
 import { settingsService } from './services/settingsService.js';
 import { sessionService } from './services/sessionService.js';
 import { renderAdminPage } from './modules/adminPage.js';
+import { showRedirectLoader } from './modules/redirectLoader.js';
 
 const pageId = router.getCurrentPage();
 
@@ -93,6 +94,10 @@ async function initHomePage() {
 
     showHomeStatus('تم التحقق من الموقع. جاري تحويلك إلى نموذج الحضور...', 'success');
 
+    await showRedirectLoader({
+      title: 'جارٍ تجهيز نموذج الحضور',
+      subtitle: 'يتم تجهيز بياناتك ونقلك إلى صفحة تسجيل الحضور.'
+    });
     window.location.href = APP_CONFIG.studentUrl;
   } catch (error) {
     const message = error?.message || 'تعذر الحصول على موقعك. حاول مرة أخرى.';
@@ -106,8 +111,12 @@ async function initHomePage() {
   }
 }
 
-const requireAdminAuth = () => {
+const requireAdminAuth = async () => {
   if (!authService.isAuthenticated()) {
+    await showRedirectLoader({
+      title: 'جارٍ تسجيل الدخول',
+      subtitle: 'يتم التحقق من الجلسة وإعادة توجيهك إلى صفحة تسجيل الدخول.'
+    });
     window.location.href = 'login.html';
     return false;
   }
@@ -119,11 +128,11 @@ const isAdminRoute = () => {
   return pathname.includes('/admin/') || pageId.startsWith('admin-') || ['students', 'sessions', 'attendance', 'departments', 'levels', 'reports', 'settings', 'logs', 'profile'].includes(pageId);
 };
 
-const initPage = () => {
+const initPage = async () => {
   setGeneratedLinks();
   document.title = `${APP_CONFIG.appName} - ${document.title}`;
 
-  if (isAdminRoute() && pageId !== 'admin-login' && !requireAdminAuth()) {
+  if (isAdminRoute() && pageId !== 'admin-login' && !(await requireAdminAuth())) {
     return;
   }
 
@@ -135,61 +144,61 @@ const initPage = () => {
       auth.initAuthPage();
       break;
     case 'admin-dashboard': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('dashboard');
       dashboard.initDashboardPage(container);
       break;
     }
     case 'students': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('students');
       students.initStudentsPage(container);
       break;
     }
     case 'sessions': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('sessions');
       sessions.initSessionsPage(container);
       break;
     }
     case 'attendance': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('attendance');
       attendanceAdmin.initAttendancePage(container);
       break;
     }
     case 'departments': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('departments');
       departments.initDepartmentsPage(container);
       break;
     }
     case 'levels': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('levels');
       levels.initLevelsPage(container);
       break;
     }
     case 'reports': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('reports');
       reports.initReportsPage(container);
       break;
     }
     case 'settings': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('settings');
       settings.initSettingsPage(container);
       break;
     }
     case 'logs': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('logs');
       logs.initLogsPage(container);
       break;
     }
     case 'profile': {
-      if (!requireAdminAuth()) return;
+      if (!(await requireAdminAuth())) return;
       const container = renderAdminPage('profile');
       profile.initProfilePage(container);
       break;
