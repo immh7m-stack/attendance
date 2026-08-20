@@ -131,6 +131,11 @@ export async function initStudentPage() {
   const levelSelect = document.querySelector('#level');
   const studentIdInput = document.querySelector('#studentId');
   const studentCard = document.getElementById('studentCard');
+  const pageLoadNotice = document.getElementById('pageLoadNotice');
+
+  const hidePageLoadNotice = () => {
+    if (pageLoadNotice) pageLoadNotice.style.display = 'none';
+  };
 
   if (!form) return;
 
@@ -183,6 +188,8 @@ export async function initStudentPage() {
         ? 'أدخل بياناتك ثم اضغط تسجيل الحضور.'
         : 'لم يتم إعداد الأقسام بعد. تواصل مع الإدارة.';
     }
+
+    hidePageLoadNotice();
   }
 
   async function loadLevelOptions(departmentId) {

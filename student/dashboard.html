@@ -15,7 +15,10 @@
 <body data-page="student-dashboard">
   <main class="page-shell">
     <section class="form-card student-dashboard-card" id="studentDashboardContainer">
-      <div class="loader">جاري تحميل لوحة الطالب...</div>
+      <div class="dashboard-shell-loader" aria-live="polite">
+        <span class="page-load-spinner" aria-hidden="true"></span>
+        <span>جارٍ تجهيز الصفحة الرئيسية...</span>
+      </div>
     </section>
   </main>
   <script type="module" src="../assets/js/studentGuard.js"></script>

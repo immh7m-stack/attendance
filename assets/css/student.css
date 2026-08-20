@@ -148,6 +148,40 @@ body[data-page="student-dashboard"] .page-shell{
 
 .form-hero-card{ margin-bottom:1.5rem; }
 
+.page-load-notice,
+.dashboard-shell-loader{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.75rem;
+  padding:.85rem 1rem;
+  border-radius:14px;
+  background:rgba(23,35,63,.04);
+  border:1px solid rgba(189,139,62,.28);
+  color:var(--navy-900);
+  font-weight:700;
+  box-shadow:0 14px 24px -20px rgba(23,35,63,.35);
+}
+
+.dashboard-shell-loader{
+  min-height:110px;
+  background:rgba(255,255,255,.78);
+  border-color:rgba(23,35,63,.08);
+}
+
+.page-load-spinner{
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  border:2px solid rgba(23,35,63,.15);
+  border-top-color:var(--gold-500);
+  animation: student-spin .8s linear infinite;
+}
+
+@keyframes student-spin {
+  to { transform: rotate(360deg); }
+}
+
 .session-info{
   position:relative;
   border:1px solid rgba(189,139,62,.35);
