@@ -32,10 +32,23 @@ const setGeneratedLinks = () => {
 
 async function initHomePage() {
   const homeStatus = document.getElementById('homeStatus');
-  if (homeStatus) {
-    homeStatus.textContent = 'جارٍ التحقق من الموقع...';
+  const showHomeStatus = (message, type = '') => {
+    if (!homeStatus) return;
+    homeStatus.textContent = message;
     homeStatus.classList.remove('error');
     homeStatus.classList.remove('success');
+    if (type) {
+      homeStatus.classList.add(type);
+    }
+  };
+
+  if (homeStatus) {
+    showHomeStatus('جارٍ التحقق من الموقع...');
+  }
+
+  if (!navigator.geolocation) {
+    showHomeStatus('يجب تفعيل خدمة الموقع (Location) على الهاتف أو استخدام متصفح يدعم الموقع.', 'error');
+    return;
   }
 
   try {
@@ -52,10 +65,7 @@ async function initHomePage() {
     const targetRadius = Number(activeSession?.radius || locationSettings?.gps_radius || locationSettings?.radius || APP_CONFIG.gpsRadiusMeters);
 
     if (!Number.isFinite(targetLatitude) || !Number.isFinite(targetLongitude) || targetLatitude === 0 || targetLongitude === 0) {
-      if (homeStatus) {
-        homeStatus.textContent = 'إعدادات الموقع غير مكتملة. تواصل مع الإدارة.';
-        homeStatus.classList.add('error');
-      }
+      showHomeStatus('إعدادات الموقع غير مكتملة. تواصل مع الإدارة.', 'error');
       return;
     }
 
@@ -67,10 +77,7 @@ async function initHomePage() {
     );
 
     if (!radiusCheck.inside) {
-      if (homeStatus) {
-        homeStatus.textContent = `أنت خارج النطاق الحالي. المسافة الحالية: ${Math.round(radiusCheck.distance)} متر، والحد المسموح: ${Math.round(targetRadius)} متر.`;
-        homeStatus.classList.add('error');
-      }
+      showHomeStatus(`أنت خارج النطاق الحالي. المسافة الحالية: ${Math.round(radiusCheck.distance)} متر، والحد المسموح: ${Math.round(targetRadius)} متر.`, 'error');
       return;
     }
 
@@ -84,17 +91,18 @@ async function initHomePage() {
       inside: true
     }));
 
-    if (homeStatus) {
-      homeStatus.textContent = 'تم التحقق من الموقع. جاري تحويلك إلى نموذج الحضور...';
-      homeStatus.classList.add('success');
-    }
+    showHomeStatus('تم التحقق من الموقع. جاري تحويلك إلى نموذج الحضور...', 'success');
 
     window.location.href = APP_CONFIG.studentUrl;
   } catch (error) {
-    if (homeStatus) {
-      homeStatus.textContent = error?.message || 'تعذر الحصول على موقعك. حاول مرة أخرى.';
-      homeStatus.classList.add('error');
-    }
+    const message = error?.message || 'تعذر الحصول على موقعك. حاول مرة أخرى.';
+    const isLocationDisabled = /location|permission|denied|gps|موقع|لوكيشن/i.test(message);
+    showHomeStatus(
+      isLocationDisabled
+        ? 'يجب تفعيل خدمة الموقع (Location) على الهاتف قبل الدخول. بعد تفعيلها، أعد تحميل الصفحة.'
+        : message,
+      'error'
+    );
   }
 }
 

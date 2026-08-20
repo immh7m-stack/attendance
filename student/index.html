@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>تسجيل الحضور</title>
-  <link rel="stylesheet" href="../assets/css/theme.css">
-  <link rel="stylesheet" href="../assets/css/student.css">
-  <link rel="stylesheet" href="../assets/css/responsive.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/theme.css" />
+  <link rel="stylesheet" href="../assets/css/student.css" />
+  <link rel="stylesheet" href="../assets/css/responsive.css" />
 </head>
 <body data-page="student-index">
   <main class="page-shell">
@@ -15,7 +18,9 @@
         <div class="heading-badge">نموذج حضور الطالب</div>
         <div>
           <h1 class="page-title">تسجيل الحضور</h1>
-          <p class="page-subtitle">أدخل بياناتك في النموذج التالي وسيتم التحقق من موقعك والمحاضرة النشطة تلقائيًا.</p>
+          <p class="page-subtitle">
+            أدخل بياناتك في النموذج التالي وسيتم التحقق من موقعك والمحاضرة النشطة تلقائيًا.
+          </p>
         </div>
       </div>
 
@@ -27,7 +32,9 @@
         <div id="studentSummary" class="student-summary"></div>
         <div id="studentSessionStatus" class="student-session-status"></div>
         <div id="studentStats" class="student-stats"></div>
-        <button id="studentLogoutBtn" type="button" class="btn btn-secondary">تسجيل الخروج</button>
+        <button id="studentLogoutBtn" type="button" class="btn btn-secondary">
+          تسجيل الخروج
+        </button>
       </div>
 
       <form id="attendance-form" class="attendance-form" novalidate>
@@ -36,11 +43,11 @@
           <div class="form-grid">
             <div class="form-group">
               <label class="label" for="studentName">اسم الطالب</label>
-              <input class="input" id="studentName" name="studentName" type="text" placeholder="أدخل اسم الطالب" required>
+              <input class="input" id="studentName" name="studentName" type="text" placeholder="أدخل اسم الطالب" required />
             </div>
             <div class="form-group">
               <label class="label" for="studentId">الرقم القومي</label>
-              <input class="input" id="studentId" name="studentId" type="text" placeholder="أدخل الرقم القومي" required>
+              <input class="input" id="studentId" name="studentId" type="text" placeholder="أدخل الرقم القومي" required />
             </div>
             <div class="form-group">
               <label class="label" for="department">الكلية</label>
@@ -60,14 +67,22 @@
         <div class="form-section form-section-accent">
           <div class="section-title">معلومات التحقق</div>
           <div class="helper-group">
-            <p class="helper-text">سيتم التحقق من الموقع الحالي تلقائيًا عند الضغط على "تسجيل الحضور".</p>
-            <div id="locationStatus" class="helper-text helper-status">سيتم التحقق من الموقع بعد الضغط على تسجيل الحضور.</div>
+            <p class="helper-text">
+              سيتم التحقق من الموقع الحالي تلقائيًا عند الضغط على "تسجيل الحضور".
+            </p>
+            <div id="locationStatus" class="helper-text helper-status">
+              سيتم التحقق من الموقع بعد الضغط على تسجيل الحضور.
+            </div>
           </div>
         </div>
 
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <button class="btn btn-primary" type="submit" style="flex: 1; min-width: 150px;">تسجيل الحضور</button>
-          <button id="goDashboardBtn" class="btn btn-secondary" type="button" style="flex: 1; min-width: 150px; display: none;">الذهاب لوحة البيانات</button>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1.4rem;">
+          <button class="btn btn-primary" type="submit" style="flex: 1; min-width: 150px;">
+            تسجيل الحضور
+          </button>
+          <button id="goDashboardBtn" class="btn btn-secondary" type="button" style="flex: 1; min-width: 150px; display: none;">
+            الذهاب لوحة البيانات
+          </button>
         </div>
       </form>
 
@@ -75,7 +90,9 @@
       <a class="back-link" href="../index.html">العودة إلى الصفحة الرئيسية</a>
     </section>
   </main>
+
   <div id="global-loader" class="loader">جاري التحميل...</div>
+
   <script type="module" src="../assets/js/studentGuard.js"></script>
   <script type="module" src="../assets/js/app.js"></script>
 </body>

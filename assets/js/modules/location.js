@@ -36,7 +36,7 @@ export async function getCurrentLocation() {
       },
       (error) => {
         const message = error && error.code === error.PERMISSION_DENIED
-          ? 'تم رفض إذن الموقع. مطلوب السماح بالموقع لتسجيل الحضور.'
+          ? 'يجب تفعيل خدمة الموقع (Location) على الهاتف قبل تسجيل الحضور.'
           : error?.message || 'تعذّر الحصول على الموقع.';
         reject(new Error(message));
       },
