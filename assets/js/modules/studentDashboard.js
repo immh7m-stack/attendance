@@ -296,23 +296,30 @@ export async function initStudentDashboardPage() {
           return;
         }
 
-        if (!isLectureRegistrationOpen(activeSession)) {
-          const lectureDate = activeSession.date || 'اليوم';
-          const startTime = activeSession.start_time || activeSession.startTime || '—';
-          const endTime = activeSession.end_time || activeSession.endTime || '—';
-          notifications.error(`انتهى وقت تسجيل الحضور لهذه المحاضرة (${lectureDate} من ${startTime} إلى ${endTime}).`);
-          notifications.loading(false);
-          checkInBtn.disabled = false;
-          return;
-        }
-
+        // Pull existing student session info early so we can decide behavior
         const existingSessionRes = await studentService.getStudentSession({ studentId: student.studentId });
         const existingSessionData = existingSessionRes?.status === 'success' ? existingSessionRes.data : null;
         const currentSessionToken = localStorage.getItem('student_session_token');
         const existingSessionToken = existingSessionData?.session_token || existingSessionData?.sessionToken || '';
 
-        if (existingSessionData && existingSessionToken && currentSessionToken && existingSessionToken !== currentSessionToken) {
-          notifications.error('يوجد جلسة نشطة لهذا المستخدم في جهاز آخر، ولا يمكن تسجيل حضور جديد في الوقت الحالي.');
+        // If session has explicit time bounds (start/end/expires), respect them.
+        // Otherwise (no time info in DB) treat registration as open while the
+        // daily active session exists — i.e., don't show "registration ended".
+        const hasTimeBounds = !!(
+          activeSession && (
+            activeSession.start_time || activeSession.startTime || activeSession.end_time || activeSession.endTime || activeSession.expires_at || activeSession.expiresAt
+          )
+        );
+
+        if (hasTimeBounds && !isLectureRegistrationOpen(activeSession)) {
+          const lectureDate = activeSession.date || 'اليوم';
+          const startTime = activeSession.start_time || activeSession.startTime || '—';
+          const endTime = activeSession.end_time || activeSession.endTime || '—';
+
+          if (existingSessionData && existingSessionToken && currentSessionToken && existingSessionToken === currentSessionToken) {
+            notifications.error(`التسجيل مغلق الآن لديك لانك سجلت من قبل  (الوقت: من ${startTime} إلى ${endTime}).`);
+          }
+
           notifications.loading(false);
           checkInBtn.disabled = false;
           return;

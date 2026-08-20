@@ -9,6 +9,7 @@ import { studentService } from '../services/studentService.js';
 import { sessionService } from '../services/sessionService.js';
 import { setState } from '../state.js';
 import { getDeviceFingerprint, getPublicIp } from './device.js';
+import { showRedirectLoader } from './redirectLoader.js';
 
 function getEgyptDateString(date = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -132,6 +133,33 @@ export async function initStudentPage() {
   const studentCard = document.getElementById('studentCard');
 
   if (!form) return;
+
+  const fingerprint = getDeviceFingerprint();
+  if (fingerprint) {
+    try {
+      const deviceSessionRes = await studentService.getStudentSession({ deviceFingerprint: fingerprint });
+      const deviceSession = deviceSessionRes?.status === 'success' ? deviceSessionRes.data : null;
+      const sessionToken = deviceSession?.session_token || deviceSession?.sessionToken || '';
+      const expiresAt = new Date(deviceSession?.expires_at || deviceSession?.expiresAt || 0).getTime();
+      const isValidSession = !!deviceSession && Number.isFinite(expiresAt) && expiresAt > Date.now();
+
+      if (isValidSession && sessionToken) {
+        localStorage.setItem('student_session_token', sessionToken);
+        await showRedirectLoader({
+          title: 'هذا الجهاز مسجل من قبل',
+          subtitle: 'جارٍ تجهيز الصفحة الرئيسية...'
+        });
+        window.location.href = 'dashboard.html';
+        return;
+      }
+
+      if (deviceSession && !isValidSession) {
+        localStorage.removeItem('student_session_token');
+      }
+    } catch (error) {
+      console.warn('Device fingerprint registration check failed:', error);
+    }
+  }
 
   if (sessionInfoContainer) {
     sessionInfoContainer.textContent = 'تحميل خيارات التسجيل...';
@@ -448,11 +476,23 @@ export async function initStudentPage() {
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const resetSubmitState = () => {
+      if (submitButton) submitButton.disabled = false;
+      form.dataset.submitting = 'false';
+    };
+
+    if (form.dataset.submitting === 'true') return;
+    form.dataset.submitting = 'true';
+    if (submitButton) submitButton.disabled = true;
+
     setState('attendance', { validationErrors: [] });
-    notifications.loading(true, 'جاري معالجة طلب الحضور...');
+    notifications.loading(true, 'جاري معالجة الطلب، يرجى الانتظار...');
 
     if (!navigator.onLine) {
       notifications.loading(false);
+      resetSubmitState();
       showOffline();
       return;
     }
@@ -467,6 +507,7 @@ export async function initStudentPage() {
     // ========== التحقق من صحة البيانات ==========
     if (!validation.validateAttendance(student)) {
       notifications.loading(false);
+      resetSubmitState();
       setState('attendance', { validationErrors: ['يرجى إكمال جميع الحقول بشكل صحيح.'] });
       notifications.error('يرجى إكمال جميع الحقول بشكل صحيح.');
       return;
@@ -474,12 +515,14 @@ export async function initStudentPage() {
 
     if (!student.department || !student.level) {
       notifications.loading(false);
+      resetSubmitState();
       notifications.error('يرجى اختيار القسم والمستوى من القائمة الثابتة.');
       return;
     }
 
     if (!currentLecture) {
       notifications.loading(false);
+      resetSubmitState();
       notifications.error('لا توجد محاضرة حالية. تواصل مع الإدارة.');
       return;
     }
@@ -493,6 +536,7 @@ export async function initStudentPage() {
 
       if (deviceSession && deviceStudentId && deviceStudentId !== student.studentId) {
         notifications.loading(false);
+        resetSubmitState();
         notifications.error(`هذا الجهاز مسجل بالفعل باسم ${deviceStudentName}، ولا يمكن استخدام نفس الهاتف لتسجيل طالب آخر في نفس الوقت.`);
         return;
       }
@@ -501,6 +545,7 @@ export async function initStudentPage() {
     const currentLocation = checkedLocation || null;
     if (!currentLocation) {
       notifications.loading(false);
+      resetSubmitState();
       showError('تعذر التحقق من موقعك. حاول مرة أخرى.');
       return;
     }
@@ -512,6 +557,7 @@ export async function initStudentPage() {
 
     if (!Number.isFinite(lectureLatitude) || !Number.isFinite(lectureLongitude) || lectureLatitude === 0 || lectureLongitude === 0) {
       notifications.loading(false);
+      resetSubmitState();
       notifications.error('إعدادات مكان المحاضرة غير مكتملة. تواصل مع الإدارة.');
       return;
     }
@@ -524,6 +570,7 @@ export async function initStudentPage() {
 
     if (!radiusCheck.inside) {
       notifications.loading(false);
+      resetSubmitState();
       locationModule.showLocationStatus(`أنت خارج نطاق الجامعة. المسافة ${Math.round(radiusCheck.distance)} متر.`, false);
       showDenied();
       return;
@@ -633,7 +680,12 @@ export async function initStudentPage() {
 
       if (apiResult.status === 'success') {
         setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
-        showSuccess();
+        await showRedirectLoader({
+          title: 'تم تسجيل الحضور بنجاح',
+          subtitle: 'جارٍ تجهيز الصفحة الرئيسية...'
+        });
+        window.location.href = 'dashboard.html';
+        return;
       } else {
         if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
           showDuplicate();
@@ -722,7 +774,12 @@ export async function initStudentPage() {
 
       if (apiResult.status === 'success') {
         setState('attendance', { currentAttendance: attendanceData, submissionResult: apiResult });
-        showSuccess();
+        await showRedirectLoader({
+          title: 'تم تسجيل الحضور بنجاح',
+          subtitle: 'جارٍ تجهيز الصفحة الرئيسية...'
+        });
+        window.location.href = 'dashboard.html';
+        return;
       } else {
         if (apiResult.error && apiResult.error.code === 'duplicate_attendance') {
           showDuplicate();

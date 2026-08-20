@@ -1,5 +1,6 @@
 import { studentService } from './services/studentService.js';
 import { getDeviceFingerprint } from './modules/device.js';
+import { showRedirectLoader } from './modules/redirectLoader.js';
 
 const STUDENT_TOKEN_KEY = 'student_session_token';
 const protectedPages = ['dashboard.html'];
@@ -48,7 +49,15 @@ async function restoreByDeviceFingerprint() {
         return false;
       }
 
-      localStorage.setItem(STUDENT_TOKEN_KEY, session.session_token || session.sessionToken || '');
+      const sessionToken = session.session_token || session.sessionToken || '';
+      if (sessionToken) {
+        localStorage.setItem(STUDENT_TOKEN_KEY, sessionToken);
+      }
+
+      await showRedirectLoader({
+        title: 'هذا الجهاز مسجل من قبل',
+        subtitle: 'جارٍ تجهيز الصفحة الرئيسية...'
+      });
       window.location.href = 'dashboard.html';
       return true;
     }
@@ -71,6 +80,10 @@ async function initStudentGuard() {
       try {
         const response = await studentService.getStudentSession({ sessionToken: token });
         if (response?.status === 'success' && response.data) {
+          await showRedirectLoader({
+            title: 'هذا الجهاز مسجل من قبل',
+            subtitle: 'جارٍ تجهيز الصفحة الرئيسية...'
+          });
           window.location.href = 'dashboard.html';
           return;
         }

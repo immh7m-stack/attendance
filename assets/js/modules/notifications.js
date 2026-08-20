@@ -21,7 +21,10 @@ function ensureLoader() {
     const container = document.createElement('div');
     container.id = 'global-loader';
     container.className = 'loader';
-    container.textContent = 'جاري التحميل...';
+    container.innerHTML = `
+      <span class="loader-spinner" aria-hidden="true"></span>
+      <span class="loader-text">جاري التحميل...</span>
+    `;
     document.body.appendChild(container);
     loader = container;
   }
@@ -37,7 +40,8 @@ window.addEventListener('app:toast', (e) => {
 window.addEventListener('app:loading:show', (e) => {
   const msg = (e && e.detail && e.detail.message) || 'جاري التحميل...';
   const loader = ensureLoader();
-  loader.textContent = msg;
+  const loaderText = loader.querySelector('.loader-text');
+  if (loaderText) loaderText.textContent = msg;
   loader.classList.add('show');
 });
 
