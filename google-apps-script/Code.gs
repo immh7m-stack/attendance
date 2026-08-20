@@ -286,11 +286,13 @@ function handleStudentLogin(body) {
     // لا يُسمح بـ login جديد طالما هناك session نشطة لنفس الطالب
     return createError('active_session_exists', 
       'لديك جلسة نشطة بالفعل، يرجى الانتظار حتى انتهاء الجلسة أو الاتصال بالإدارة.', 
-      { 
+      {
         existingSession: {
           session_token: getRowValue(existingByStudent, 'session_token'),
-          expires_at: getRowValue(existingByStudent, 'expires_at'),
-          login_date: getRowValue(existingByStudent, 'login_date')
+          login_date: getRowValue(existingByStudent, 'login_date') || getTodayDate(),
+          login_time: getRowValue(existingByStudent, 'login_time') || '00:00:00',
+          expires_at: getRowValue(existingByStudent, 'expires_at') || new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          started_at: getRowValue(existingByStudent, 'created_at') || new Date().toISOString()
         }
       });
   }

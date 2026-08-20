@@ -69,6 +69,52 @@ function showStudentPanel(student, session, stats) {
   studentStats.innerHTML = renderStudentStats(stats);
 }
 
+function formatSessionDateTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return new Intl.DateTimeFormat('ar-EG', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'Africa/Cairo'
+  }).format(date);
+}
+
+function buildDuplicateSessionWarning(session) {
+  const loginDate = session?.login_date || session?.loginDate || '—';
+  const loginTime = session?.login_time || session?.loginTime || '—';
+  const expiresAt = session?.expires_at || session?.expiresAt;
+  const expiryText = expiresAt ? `حتى ${formatSessionDateTime(expiresAt)}` : 'حتى انتهاء الجلسة الحالية';
+  return `تم تسجيل الدخول من قبل في ${loginDate} الساعة ${loginTime}. ${expiryText}. لا يمكن تسجيل حضور جديد قبل انتهاء وقت الجلسة الحالية.`;
+}
+
+function setRegistrationNotice(message, isDisabled = false) {
+  const noticeNode = document.getElementById('registrationNotice');
+  const submitButton = document.querySelector('#attendance-form button[type="submit"]');
+
+  if (noticeNode) {
+    if (!message) {
+      noticeNode.hidden = true;
+      noticeNode.textContent = '';
+      return;
+    }
+
+    noticeNode.textContent = message;
+    noticeNode.hidden = false;
+  }
+
+  if (submitButton) {
+    submitButton.disabled = isDisabled;
+    submitButton.setAttribute('aria-disabled', String(isDisabled));
+  }
+}
+
 function hideStudentPanel() {
   const studentPanel = document.getElementById('studentPanel');
   if (studentPanel) studentPanel.style.display = 'none';
@@ -132,6 +178,7 @@ export async function initStudentPage() {
   const studentIdInput = document.querySelector('#studentId');
   const studentCard = document.getElementById('studentCard');
   const pageLoadNotice = document.getElementById('pageLoadNotice');
+  const submitButton = form.querySelector('button[type="submit"]');
 
   const hidePageLoadNotice = () => {
     if (pageLoadNotice) pageLoadNotice.style.display = 'none';
@@ -150,6 +197,7 @@ export async function initStudentPage() {
 
       if (isValidSession && sessionToken) {
         localStorage.setItem('student_session_token', sessionToken);
+        setRegistrationNotice('جلسة التسجيل الحالية ما زالت فعّالة، لا يمكنك تسجيل حضور جديد حتى تنتهي الجلسة الحالية.', true);
         await showRedirectLoader({
           title: 'هذا الجهاز مسجل من قبل',
           subtitle: 'جارٍ تجهيز الصفحة الرئيسية...'
@@ -494,6 +542,7 @@ export async function initStudentPage() {
     form.dataset.submitting = 'true';
     if (submitButton) submitButton.disabled = true;
 
+    setRegistrationNotice('', false);
     setState('attendance', { validationErrors: [] });
     notifications.loading(true, 'جاري معالجة الطلب، يرجى الانتظار...');
 
@@ -594,9 +643,9 @@ export async function initStudentPage() {
     // إذا كان لدى الطالب Session نشطة: عدم السماح بـ login جديد
     if (existingSession) {
       notifications.loading(false);
-      notifications.warning(
-        'لقد قمت بتسجيل الدخول من قبل، جاري توجيهك إلى الصفحة الرئيسية...'
-      );
+      const duplicateWarning = buildDuplicateSessionWarning(existingSession);
+      setRegistrationNotice(duplicateWarning, true);
+      notifications.warning(duplicateWarning);
 
       // حفظ الـ Token وتحضير المعلومات
       const token = existingSession.session_token || existingSession.sessionToken || '';
