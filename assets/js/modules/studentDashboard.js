@@ -107,6 +107,50 @@ function attendanceRow(item) {
   `;
 }
 
+function parseTimeToMinutes(value) {
+  if (!value) return null;
+  const [timePart, suffix] = String(value).trim().split(/\s+/);
+  const normalized = (suffix ? `${timePart} ${suffix}` : timePart).replace(/\./g, ':');
+  const match = normalized.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!match) return null;
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const seconds = Number(match[3] || 0);
+  const period = String(match[4] || '').toLowerCase();
+
+  if (period === 'pm' && hours < 12) hours += 12;
+  if (period === 'am' && hours === 12) hours = 0;
+
+  return hours * 60 + minutes + seconds / 60;
+}
+
+function isLectureRegistrationOpen(session, now = new Date()) {
+  if (!session) return false;
+
+  const startTime = session.start_time || session.startTime || session.start || null;
+  const endTime = session.end_time || session.endTime || session.end || null;
+  const lectureDate = session.date || session.session_date || session.login_date || null;
+
+  if (lectureDate && startTime && endTime) {
+    const sessionStart = new Date(`${lectureDate}T${startTime}+02:00`);
+    const sessionEnd = new Date(`${lectureDate}T${endTime}+02:00`);
+
+    if (!Number.isNaN(sessionStart.getTime()) && !Number.isNaN(sessionEnd.getTime())) {
+      return now >= sessionStart && now <= sessionEnd;
+    }
+  }
+
+  if (session.expires_at || session.expiresAt) {
+    const expiresAt = new Date(session.expires_at || session.expiresAt);
+    if (!Number.isNaN(expiresAt.getTime())) {
+      return now < expiresAt;
+    }
+  }
+
+  return true;
+}
+
 function createDashboardContent(student, session, stats, attendanceRecords, alreadyCheckedInToday) {
   const normalizedStudent = normalizeStudent(student);
   const normalizedSession = normalizeSession(session);
@@ -239,7 +283,7 @@ export async function initStudentDashboardPage() {
   if (checkInBtn) {
     checkInBtn.addEventListener('click', async () => {
       checkInBtn.disabled = true;
-      notifications.loading(true, 'جاري استخدام موقعك لتسجيل الحضور...');
+      notifications.loading(true, 'جاري التحقق من حالة الولوج وتسجيل الحضور...');
       try {
         const currentLocation = await locationModule.getCurrentLocation();
         const activeSessionRes = await sessionService.getActiveSession();
@@ -247,6 +291,28 @@ export async function initStudentDashboardPage() {
 
         if (!activeSession) {
           notifications.error('لا توجد محاضرة حالية.');
+          notifications.loading(false);
+          checkInBtn.disabled = false;
+          return;
+        }
+
+        if (!isLectureRegistrationOpen(activeSession)) {
+          const lectureDate = activeSession.date || 'اليوم';
+          const startTime = activeSession.start_time || activeSession.startTime || '—';
+          const endTime = activeSession.end_time || activeSession.endTime || '—';
+          notifications.error(`انتهى وقت تسجيل الحضور لهذه المحاضرة (${lectureDate} من ${startTime} إلى ${endTime}).`);
+          notifications.loading(false);
+          checkInBtn.disabled = false;
+          return;
+        }
+
+        const existingSessionRes = await studentService.getStudentSession({ studentId: student.studentId });
+        const existingSessionData = existingSessionRes?.status === 'success' ? existingSessionRes.data : null;
+        const currentSessionToken = localStorage.getItem('student_session_token');
+        const existingSessionToken = existingSessionData?.session_token || existingSessionData?.sessionToken || '';
+
+        if (existingSessionData && existingSessionToken && currentSessionToken && existingSessionToken !== currentSessionToken) {
+          notifications.error('يوجد جلسة نشطة لهذا المستخدم في جهاز آخر، ولا يمكن تسجيل حضور جديد في الوقت الحالي.');
           notifications.loading(false);
           checkInBtn.disabled = false;
           return;

@@ -3,9 +3,15 @@ import { notificationService } from '../services/notificationService.js';
 function createToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'assertive');
   toast.textContent = message;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(12px)';
+    setTimeout(() => toast.remove(), 220);
+  }, 2800);
 }
 
 function ensureLoader() {
