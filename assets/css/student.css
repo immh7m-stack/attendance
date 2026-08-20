@@ -141,7 +141,7 @@ body[data-page="student-dashboard"] .page-shell{
 
 .session-info{
   position:relative;
-  border:1px solid rgba(189,139,62,.35);
+  border:2px solid rgba(243,230,200,.22);
   background:linear-gradient(135deg,var(--navy-900),var(--navy-800));
   color:var(--paper-0);
   padding:1rem 1.25rem;
@@ -151,6 +151,9 @@ body[data-page="student-dashboard"] .page-shell{
   place-items:center start;
   font-weight:600;
   box-shadow:var(--shadow-card);
+  line-height:1.8;
+  letter-spacing:0.01em;
+  word-break:break-word;
 }
 
 .session-info::before,
@@ -168,13 +171,14 @@ body[data-page="student-dashboard"] .page-shell{
 .session-info::after{ inset-inline-end:-9px; }
 
 .student-panel{
-  border:1px solid rgba(47,107,79,.25);
+  border:2px solid rgba(47,107,79,.18);
   background:linear-gradient(135deg,var(--green-100),#f4faf6);
   padding:1.1rem 1.3rem;
   border-radius:16px;
   display:grid;
   gap:.85rem;
   margin-bottom:1.5rem;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.4);
 }
 
 .student-summary{ font-weight:700; color:var(--navy-900); font-size:1.05rem; }
@@ -349,6 +353,7 @@ body[data-page="student-dashboard"] .page-shell{
 .sd-header{
   position:relative;
   background:linear-gradient(155deg,var(--navy-900) 0%,var(--navy-700) 100%);
+  border:2px solid rgba(243,230,200,.18);
   border-radius:20px;
   padding:1.6rem 1.7rem;
   color:#fff;
@@ -408,7 +413,7 @@ body[data-page="student-dashboard"] .page-shell{
   border-radius:20px;
   padding:1.5rem 1.6rem;
   box-shadow:var(--shadow-card);
-  border:1px solid rgba(23,35,63,.06);
+  border:2px solid rgba(23,35,63,.08);
   display:grid;
   grid-template-columns:auto 1fr;
   gap:1.6rem;
@@ -443,15 +448,40 @@ body[data-page="student-dashboard"] .page-shell{
 
 .sd-stat-row{
   display:flex;
-  align-items:baseline;
+  align-items:center;
   justify-content:space-between;
-  padding-bottom:.85rem;
+  gap:1rem;
+  padding:.8rem .9rem;
   margin-bottom:.85rem;
-  border-bottom:1px dashed var(--paper-line);
+  border:1px solid rgba(23,35,63,.08);
+  border-radius:12px;
+  background:rgba(250,247,240,.72);
+  min-height:52px;
   font-size:.98rem;
 }
-.sd-stat-row:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+.sd-stat-row:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:.8rem; }
 .sd-stat-row strong{ color:var(--navy-900); font-family:var(--font-display); font-size:1.2rem; }
+
+.sd-stat-name,
+.sd-stat-value{
+  line-height:1.6;
+  word-break:break-word;
+}
+
+.sd-stat-name {
+  font-size: 0.92rem;
+  color: var(--ink-500);
+  font-weight: 500;
+  white-space: normal;
+}
+
+.sd-stat-value {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--navy-900);
+  white-space: nowrap;
+}
 
 .btn-checkin{
   width:100%;
@@ -477,7 +507,7 @@ body[data-page="student-dashboard"] .page-shell{
   background:#fff;
   border-radius:20px;
   box-shadow:var(--shadow-card);
-  border:1px solid rgba(23,35,63,.06);
+  border:2px solid rgba(23,35,63,.08);
   overflow:auto;
 }
 
