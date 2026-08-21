@@ -302,6 +302,27 @@ button, input, select, textarea {
   backdrop-filter: blur(10px);
 }
 
+@media (max-width: 600px) {
+  .toast {
+    top: auto;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(92vw, 420px);
+    padding: 0.8rem 0.9rem;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    align-items: flex-start;
+  }
+
+  .toast::before {
+    width: 10px;
+    height: 10px;
+    margin-top: 0.2rem;
+  }
+}
+
 .toast::before {
   content: "";
   display: inline-block;
