@@ -333,31 +333,100 @@ body[data-page="student-dashboard"] {
 }
 
 @media (max-width: 700px) {
+  body[data-page="student-dashboard"] .page-shell {
+    padding: 0.85rem 0.6rem;
+  }
+
+  .student-dashboard-card {
+    width: min(100%, 430px);
+    padding: 0.9rem 0.8rem 1rem;
+    border-radius: 18px;
+  }
+
   .student-form-card {
     padding: 1.25rem 1rem 1rem;
     border-radius: 22px;
   }
 
   .sd-header {
-    padding: 0.9rem 0.9rem 1rem;
+    padding: 0.8rem 0.8rem 0.9rem;
+    border-radius: 16px;
+  }
+
+  .sd-header::before {
+    width: 68%;
+    height: 70%;
+    inset: 10px 12px auto auto;
   }
 
   .sd-id-row {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.7rem;
+    margin-top: 1.2rem;
+  }
+
+  .sd-avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 1.25rem;
+  }
+
+  .sd-name {
+    font-size: 1.4rem;
+  }
+
+  .sd-chips {
+    font-size: 0.74rem;
   }
 
   .sd-session-pill {
     justify-content: flex-start;
+    gap: 0.45rem;
+    font-size: 0.75rem;
   }
 
   .sd-stats-card {
     flex-direction: column;
     align-items: stretch;
+    padding: 0.8rem 0.75rem;
   }
 
   .sd-ring-wrap {
     margin: 0 auto;
+    width: 96px;
+    height: 96px;
+  }
+
+  .sd-stat-list {
+    width: 100%;
+  }
+
+  .sd-stat-row {
+    font-size: 0.82rem;
+    padding: 0.7rem 0.65rem;
+  }
+
+  .sd-log-card {
+    padding: 0.8rem 0.7rem 0.6rem;
+    border-radius: 14px;
+  }
+
+  .sd-log-title {
+    font-size: 1.12rem;
+  }
+
+  .sd-table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .sd-table th,
+  .sd-table td {
+    padding: 0.7rem 0.4rem;
+    font-size: 0.78rem;
   }
 
   .form-grid {
