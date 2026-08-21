@@ -243,6 +243,17 @@ function handleStudentLogin(body) {
     });
   }
 
+  const existingDeviceSession = findStudentSessionByFingerprint(deviceFingerprint);
+  if (existingDeviceSession) {
+    const existingStudentId = String(getRowValue(existingDeviceSession, 'student_id') || '').trim();
+
+    if (existingStudentId === studentId) {
+      return createSuccess(existingDeviceSession);
+    }
+
+    return createError('device_in_use', 'هذا الجهاز مستخدم بالفعل بواسطة طالب مختلف.');
+  }
+
   const locationSettings = getLocationSettings();
   const allowMultipleDevices = parseBoolean(locationSettings.allow_multiple_devices);
 
