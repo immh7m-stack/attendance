@@ -304,21 +304,23 @@ button, input, select, textarea {
 
 @media (max-width: 600px) {
   .toast {
-    top: auto;
-    bottom: 1rem;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(92vw, 420px);
-    padding: 0.8rem 0.9rem;
-    border-radius: 14px;
-    font-size: 0.9rem;
-    line-height: 1.6;
+    top: 1rem;
+    left: auto;
+    right: 0.75rem;
+    bottom: auto;
+    transform: none;
+    width: min(82vw, 320px);
+    padding: 0.7rem 0.8rem;
+    border-radius: 12px;
+    font-size: 0.84rem;
+    line-height: 1.5;
     align-items: flex-start;
+    box-shadow: 0 14px 28px -18px rgba(23, 35, 63, 0.5);
   }
 
   .toast::before {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     margin-top: 0.2rem;
   }
 }
