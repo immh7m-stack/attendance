@@ -139,8 +139,12 @@ function getUniqueOptions(items, key) {
   return Array.from(new Set(items.map((item) => item[key] || '').filter(Boolean))).sort();
 }
 
-function renderStudents(container, items) {
+function renderStudents(container, items = currentItems) {
   const filteredItems = applyCombinedFilters(items, currentFilters, currentAttendanceSummary);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / 5));
+  if (currentPage > totalPages) currentPage = 1;
+
+  const visibleItems = filteredItems.slice((currentPage - 1) * 5, currentPage * 5);
   const card = createCard('جدول الطلاب', '');
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
@@ -168,6 +172,7 @@ function renderStudents(container, items) {
       <option value="absent" ${currentFilters.attendance === 'absent' ? 'selected' : ''}>غياب</option>
       <option value="repeated" ${currentFilters.attendance === 'repeated' ? 'selected' : ''}>متكرر (أكثر من يوم)</option>
     </select>
+    <button type="button" id="studentApplyFiltersBtn" class="btn btn-primary">تطبيق الفلتر</button>
   `;
   toolbar.appendChild(filters);
   card.querySelector('.card-body').appendChild(toolbar);
@@ -186,11 +191,10 @@ function renderStudents(container, items) {
       'الحضور',
       'الغياب',
       'الحالة'
-    ], buildRows(filteredItems, currentAttendanceSummary)));
-    card.querySelector('.card-body').appendChild(createPagination(currentPage, Math.max(1, Math.ceil(filteredItems.length / 5)), (page) => {
+    ], buildRows(visibleItems, currentAttendanceSummary)));
+    card.querySelector('.card-body').appendChild(createPagination(currentPage, totalPages, (page) => {
       currentPage = page;
-      const start = (page - 1) * 5;
-      renderStudents(container, currentItems.slice(start, start + 5));
+      renderStudents(container, currentItems);
     }));
   }
 
@@ -201,27 +205,30 @@ function renderStudents(container, items) {
   const departmentFilter = document.getElementById('studentDepartmentFilter');
   const levelFilter = document.getElementById('studentLevelFilter');
   const attendanceFilter = document.getElementById('studentAttendanceFilter');
+  const applyButton = document.getElementById('studentApplyFiltersBtn');
 
   const applyFilters = () => {
-    notifications.loading(true, 'جاري تطبيق الفلتر وجلب البيانات المفلترة...');
-
     currentFilters.query = searchInput?.value.trim() || '';
     currentFilters.department = departmentFilter?.value || '';
     currentFilters.level = levelFilter?.value || '';
     currentFilters.attendance = attendanceFilter?.value || 'all';
     currentPage = 1;
-    renderStudents(container, currentItems);
+
+    container.innerHTML = '';
+    container.appendChild(createLoader('جاري تطبيق الفلتر وجلب البيانات المفلترة...'));
 
     setTimeout(() => {
-      notifications.loading(false);
+      renderStudents(container, currentItems);
       notifications.success('تم تطبيق الفلتر بنجاح.');
     }, 350);
   };
 
-  if (searchInput) searchInput.addEventListener('input', applyFilters);
-  if (departmentFilter) departmentFilter.addEventListener('change', applyFilters);
-  if (levelFilter) levelFilter.addEventListener('change', applyFilters);
-  if (attendanceFilter) attendanceFilter.addEventListener('change', applyFilters);
+  if (searchInput) searchInput.addEventListener('input', () => {
+    currentFilters.query = searchInput.value.trim();
+    currentPage = 1;
+    renderStudents(container, currentItems);
+  });
+  if (applyButton) applyButton.addEventListener('click', applyFilters);
 }
 
 export async function initStudentsPage(container) {
@@ -239,7 +246,7 @@ export async function initStudentsPage(container) {
     const items = studentsResult?.status === 'success' ? studentsResult.data : [];
     currentItems = items;
     currentAttendanceSummary = buildAttendanceSummary(attendanceResult?.status === 'success' ? attendanceResult.data : []);
-    renderStudents(container, items.slice(0, 5));
+    renderStudents(container, items);
   } catch (error) {
     container.innerHTML = '';
     container.appendChild(createErrorState('تعذر جلب البيانات. يرجى المحاولة مرة أخرى.'));
