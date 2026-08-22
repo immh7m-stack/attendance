@@ -1,5 +1,5 @@
 import { studentService } from '../services/studentService.js';
-import { createCard, createSearchBox, createTable, createPagination, createEmptyState } from './components.js';
+import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
 
 let currentItems = [];
 let currentPage = 1;
@@ -69,10 +69,19 @@ function renderStudents(container, items) {
 
 export async function initStudentsPage(container) {
   if (!container) return;
-  const result = await studentService.getStudents({ page: 1, pageSize: 25 });
-  const items = result?.status === 'success' ? result.data : [];
-  currentItems = items;
-  renderStudents(container, items.slice(0, 5));
+
+  container.innerHTML = '';
+  container.appendChild(createLoader('جاري جلب البيانات لعرضها. الرجاء الانتظار...'));
+
+  try {
+    const result = await studentService.getStudents({ page: 1, pageSize: 25 });
+    const items = result?.status === 'success' ? result.data : [];
+    currentItems = items;
+    renderStudents(container, items.slice(0, 5));
+  } catch (error) {
+    container.innerHTML = '';
+    container.appendChild(createErrorState('تعذر جلب البيانات. يرجى المحاولة مرة أخرى.'));
+  }
 }
 
 export async function getStudents(filters = {}) { return studentService.getStudents(filters); }

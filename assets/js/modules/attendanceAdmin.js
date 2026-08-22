@@ -1,5 +1,5 @@
 import { attendanceService } from '../services/attendanceService.js';
-import { createCard, createSearchBox, createTable, createPagination, createEmptyState } from './components.js';
+import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
 
 let currentPage = 1;
 let currentItems = [];
@@ -55,8 +55,17 @@ function renderAttendance(container, items) {
 
 export async function initAttendancePage(container) {
   if (!container) return;
-  const result = await attendanceService.getAttendance({ page: 1, pageSize: 25 });
-  const items = result?.status === 'success' ? result.data : [];
-  currentItems = items;
-  renderAttendance(container, items.slice(0, 5));
+
+  container.innerHTML = '';
+  container.appendChild(createLoader('جاري جلب البيانات لعرضها. الرجاء الانتظار...'));
+
+  try {
+    const result = await attendanceService.getAttendance({ page: 1, pageSize: 25 });
+    const items = result?.status === 'success' ? result.data : [];
+    currentItems = items;
+    renderAttendance(container, items.slice(0, 5));
+  } catch (error) {
+    container.innerHTML = '';
+    container.appendChild(createErrorState('تعذر جلب البيانات. يرجى المحاولة مرة أخرى.'));
+  }
 }

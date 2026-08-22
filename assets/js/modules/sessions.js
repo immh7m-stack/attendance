@@ -1,5 +1,5 @@
 import { sessionService } from '../services/sessionService.js';
-import { createCard, createSearchBox, createTable, createPagination, createEmptyState } from './components.js';
+import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
 
 let currentItems = [];
 let currentPage = 1;
@@ -52,10 +52,19 @@ function renderSessions(container, items) {
 
 export async function initSessionsPage(container) {
   if (!container) return;
-  const result = await sessionService.getSessions({ page: 1, pageSize: 25 });
-  const items = result?.status === 'success' ? result.data : [];
-  currentItems = items;
-  renderSessions(container, items.slice(0, 5));
+
+  container.innerHTML = '';
+  container.appendChild(createLoader('جاري جلب البيانات لعرضها. الرجاء الانتظار...'));
+
+  try {
+    const result = await sessionService.getSessions({ page: 1, pageSize: 25 });
+    const items = result?.status === 'success' ? result.data : [];
+    currentItems = items;
+    renderSessions(container, items.slice(0, 5));
+  } catch (error) {
+    container.innerHTML = '';
+    container.appendChild(createErrorState('تعذر جلب البيانات. يرجى المحاولة مرة أخرى.'));
+  }
 }
 
 export async function createSession(data) { return sessionService.createSession(data); }

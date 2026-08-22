@@ -1,4 +1,4 @@
-import { createCard, createSearchBox, createTable, createPagination, createEmptyState } from './components.js';
+import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
 import { get } from '../services/apiAdapter.js';
 
 function buildRows(items) {
@@ -7,6 +7,10 @@ function buildRows(items) {
 
 export async function initLogsPage(container) {
   if (!container) return;
+
+  container.innerHTML = '';
+  container.appendChild(createLoader('جاري جلب البيانات لعرضها. الرجاء الانتظار...'));
+
   const card = createCard('السجلات', '');
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
@@ -44,10 +48,11 @@ export async function initLogsPage(container) {
         render(filtered);
       });
     }
-  } catch (e) {
-    card.querySelector('.card-body').appendChild(createEmptyState('تعذر جلب السجلات', 'حدث خطأ أثناء جلب السجلات.'));
-  }
 
-  container.innerHTML = '';
-  container.appendChild(card);
+    container.innerHTML = '';
+    container.appendChild(card);
+  } catch (e) {
+    container.innerHTML = '';
+    container.appendChild(createErrorState('تعذر جلب البيانات. يرجى المحاولة مرة أخرى.'));
+  }
 }

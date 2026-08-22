@@ -64,8 +64,13 @@ export function createCard(title, bodyContent = '', footer = '') {
 }
 
 export function createLoader(message = 'جاري التحميل...') {
-  const loader = createElement('div', 'loader');
-  loader.innerHTML = `<div>${message}</div>`;
+  const loader = createElement('div', 'loading-state');
+  loader.innerHTML = `
+    <div class="loading-state-box">
+      <span class="loading-spinner"></span>
+      <div class="loading-text">${message}</div>
+    </div>
+  `;
   return loader;
 }
 

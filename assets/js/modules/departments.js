@@ -1,5 +1,5 @@
 import { studentService } from '../services/studentService.js';
-import { createCard, createSearchBox, createPagination, createEmptyState, createModal } from './components.js';
+import { createCard, createSearchBox, createPagination, createEmptyState, createModal, createLoader, createErrorState } from './components.js';
 
 let currentItems = [];
 let currentPage = 1;
@@ -201,5 +201,14 @@ function renderDepartments(container, items) {
 
 export async function initDepartmentsPage(container) {
   if (!container) return;
-  await loadDepartments(container);
+
+  container.innerHTML = '';
+  container.appendChild(createLoader('جاري جلب البيانات لعرضها. الرجاء الانتظار...'));
+
+  try {
+    await loadDepartments(container);
+  } catch (error) {
+    container.innerHTML = '';
+    container.appendChild(createErrorState('تعذر جلب البيانات. يرجى المحاولة مرة أخرى.'));
+  }
 }
