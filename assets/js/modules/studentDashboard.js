@@ -185,7 +185,7 @@ function createDashboardContent(student, session, stats, attendanceRecords, alre
   const attendanceRows = attendanceRecords.map(attendanceRow).join('');
   const rate = Number(stats.attendanceRate || 0);
   // إذا كانت النسبة 100، نعرض كلمة 'جيد' بدلاً من '100%'. خلاف ذلك نعرض الرقم مع علامة النسبة.
-  const displayRate = rate === 100 ? 'جيد' : `${rate}%`;
+  const displayRate = rate === 100 ? 'جيده' : `${rate}%`;
   const CIRCUMFERENCE = 339.3;
   const offset = CIRCUMFERENCE - (Math.min(Math.max(rate, 0), 100) / 100) * CIRCUMFERENCE;
 
