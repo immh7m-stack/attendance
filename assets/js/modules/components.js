@@ -90,6 +90,43 @@ export function createStatisticCard(title, value, footer = '') {
   return card;
 }
 
+export function formatDateCell(value) {
+  if (value === undefined || value === null || value === '') return '-';
+  const text = String(value).trim();
+  if (!text || text === '-') return '-';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text;
+
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(parsed);
+}
+
+export function formatTimeCell(value) {
+  if (value === undefined || value === null || value === '') return '-';
+  const text = String(value).trim();
+  if (!text || text === '-') return '-';
+
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(text)) return text;
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text;
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Cairo',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(parsed);
+}
+
 export function createTable(headers, rows) {
   const table = createElement('table', 'table');
   table.innerHTML = `

@@ -1,5 +1,5 @@
 import { attendanceService } from '../services/attendanceService.js';
-import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
+import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState, formatDateCell, formatTimeCell } from './components.js';
 
 let currentPage = 1;
 let currentItems = [];
@@ -13,8 +13,8 @@ function buildRows(items) {
     getStudentDisplayName(item),
     item.studentId || item.student_id || '-',
     item.sessionId || item.session_id || '-',
-    item.date || '-',
-    item.time || '-',
+    formatDateCell(item.date),
+    formatTimeCell(item.time),
     item.status || '-',
     item.distance !== undefined ? item.distance : '-',
   ]);

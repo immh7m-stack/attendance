@@ -1,8 +1,8 @@
-import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
+import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState, formatDateCell } from './components.js';
 import { get } from '../services/apiAdapter.js';
 
 function buildRows(items) {
-  return items.map((item) => [item.date || '-', item.action || '-', item.user || '-', item.result || '-', item.description || '-']);
+  return items.map((item) => [formatDateCell(item.date), item.action || '-', item.user || '-', item.result || '-', item.description || '-']);
 }
 
 export async function initLogsPage(container) {

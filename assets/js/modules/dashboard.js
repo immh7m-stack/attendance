@@ -1,7 +1,7 @@
 import { dashboardService } from '../services/dashboardService.js';
 import { sessionService } from '../services/sessionService.js';
 import { setState } from '../state.js';
-import { createCard, createStatisticCard, createTable, createEmptyState, createLoader, createErrorState } from './components.js';
+import { createCard, createStatisticCard, createTable, createEmptyState, createLoader, createErrorState, formatDateCell, formatTimeCell } from './components.js';
 
 export async function getStatistics() {
   const result = await dashboardService.getSummary();
@@ -24,8 +24,8 @@ function buildAttendanceRows(items) {
   return items.map((item) => [
     getStudentDisplayName(item),
     item.studentId || item.student_id || '-',
-    item.date || '-',
-    item.time || '-',
+    formatDateCell(item.date),
+    formatTimeCell(item.time),
     item.status || '-',
     item.distance !== undefined ? item.distance : '-',
   ]);
@@ -35,9 +35,9 @@ function buildSessionRows(items) {
   return items.map((item) => [
     item.subjectName || item.subject || '-',
     item.sessionId || item.session_id || '-',
-    item.date || '-',
-    item.start_time || item.start || '-',
-    item.end_time || item.end || '-',
+    formatDateCell(item.date),
+    formatTimeCell(item.start_time || item.start || '-'),
+    formatTimeCell(item.end_time || item.end || '-'),
     item.status || '-',
   ]);
 }

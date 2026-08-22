@@ -1,5 +1,5 @@
 import { sessionService } from '../services/sessionService.js';
-import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
+import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState, formatDateCell, formatTimeCell } from './components.js';
 
 let currentItems = [];
 let currentPage = 1;
@@ -8,9 +8,9 @@ function buildRows(items) {
   return items.map((item) => [
     item.subjectName || item.subject_name || '-',
     item.sessionId || item.session_id || '-',
-    item.date || '-',
-    item.start_time || item.start || '-',
-    item.end_time || item.end || '-',
+    formatDateCell(item.date),
+    formatTimeCell(item.start_time || item.start || '-'),
+    formatTimeCell(item.end_time || item.end || '-'),
     item.radius || '-',
     item.status || '-',
   ]);
