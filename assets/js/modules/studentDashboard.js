@@ -179,11 +179,36 @@ function showDashboardNotification(message, type = 'info') {
   notice.hidden = false;
 }
 
+function countPresentDays(attendanceRecords = []) {
+  const presentDates = new Set();
+
+  attendanceRecords.forEach((record) => {
+    const status = String(record.status || '').trim().toLowerCase();
+    const rawDate = record.date || record.session_date || record.login_date;
+    if (status !== 'present' || !rawDate) return;
+
+    const parsedDate = toCairoDate(rawDate);
+    if (!parsedDate) return;
+
+    const key = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Cairo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(parsedDate);
+
+    presentDates.add(key);
+  });
+
+  return presentDates.size;
+}
+
 function createDashboardContent(student, session, stats, attendanceRecords, alreadyCheckedInToday) {
   const normalizedStudent = normalizeStudent(student);
   const normalizedSession = normalizeSession(session);
   const attendanceRows = attendanceRecords.map(attendanceRow).join('');
   const rate = Number(stats.attendanceRate || 0);
+  const presentDaysCount = Number(stats.presentDays || stats.daysPresent || countPresentDays(attendanceRecords) || 0);
   // إذا كانت النسبة 100، نعرض كلمة 'جيد' بدلاً من '100%'. خلاف ذلك نعرض الرقم مع علامة النسبة.
   const displayRate = rate === 100 ? 'جيده' : `${rate}%`;
   const CIRCUMFERENCE = 339.3;
@@ -230,6 +255,10 @@ function createDashboardContent(student, session, stats, attendanceRecords, alre
           <div class="sd-stat-row">
             <span class="sd-stat-name">عدد مرات الحضور</span>
             <span class="sd-stat-value">${stats.present || 0}</span>
+          </div>
+          <div class="sd-stat-row">
+            <span class="sd-stat-name">عدد أيام الحضور</span>
+            <span class="sd-stat-value">${presentDaysCount}</span>
           </div>
         </div>
       </div>

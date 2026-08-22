@@ -4,10 +4,14 @@ import { createCard, createSearchBox, createTable, createPagination, createEmpty
 let currentPage = 1;
 let currentItems = [];
 
+function getStudentDisplayName(item = {}) {
+  return item.studentName || item.student_name || item.name || item.studentId || item.student_id || '-';
+}
+
 function buildRows(items) {
   return items.map((item) => [
-    item.studentName || item.studentId || '-',
-    item.studentId || '-',
+    getStudentDisplayName(item),
+    item.studentId || item.student_id || '-',
     item.sessionId || item.session_id || '-',
     item.date || '-',
     item.time || '-',
