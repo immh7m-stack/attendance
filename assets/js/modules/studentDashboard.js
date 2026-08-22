@@ -184,6 +184,8 @@ function createDashboardContent(student, session, stats, attendanceRecords, alre
   const normalizedSession = normalizeSession(session);
   const attendanceRows = attendanceRecords.map(attendanceRow).join('');
   const rate = Number(stats.attendanceRate || 0);
+  // إذا كانت النسبة 100، نعرض كلمة 'جيد' بدلاً من '100%'. خلاف ذلك نعرض الرقم مع علامة النسبة.
+  const displayRate = rate === 100 ? 'جيد' : `${rate}%`;
   const CIRCUMFERENCE = 339.3;
   const offset = CIRCUMFERENCE - (Math.min(Math.max(rate, 0), 100) / 100) * CIRCUMFERENCE;
 
@@ -215,8 +217,8 @@ function createDashboardContent(student, session, stats, attendanceRecords, alre
             <circle class="sd-ring-progress" cx="64" cy="64" r="54" fill="none" stroke-width="12"
               stroke-dasharray="${CIRCUMFERENCE}" stroke-dashoffset="${offset}"></circle>
           </svg>
-          <div class="sd-ring-center">
-            <div class="sd-ring-pct">${rate}%</div>
+            <div class="sd-ring-center">
+            <div class="sd-ring-pct">${displayRate}</div>
             <div class="sd-ring-label">نسبة الحضور</div>
           </div>
         </div>
