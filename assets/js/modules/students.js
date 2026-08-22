@@ -1,11 +1,93 @@
 import { studentService } from '../services/studentService.js';
+import { attendanceService } from '../services/attendanceService.js';
 import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
 
 let currentItems = [];
 let currentPage = 1;
+let currentAttendanceSummary = new Map();
+let currentFilters = {
+  query: '',
+  department: '',
+  level: '',
+  attendance: 'all'
+};
 
-function buildRows(items) {
-  return items.map((item) => [item.studentId || '-', item.name || '-', item.faculty || '-', item.department || '-', item.level || '-', item.status || '-']);
+function normalizeStudentId(item = {}) {
+  return String(item.studentId || item.student_id || item.id || '').trim();
+}
+
+function buildAttendanceSummary(items = []) {
+  const summary = new Map();
+
+  items.forEach((item) => {
+    const studentId = normalizeStudentId(item);
+    if (!studentId) return;
+
+    const existing = summary.get(studentId) || { total: 0, present: 0, absent: 0 };
+    const status = String(item.status || '').trim().toLowerCase();
+    existing.total += 1;
+
+    if (status === 'present') existing.present += 1;
+    if (status === 'absent') existing.absent += 1;
+
+    summary.set(studentId, existing);
+  });
+
+  return summary;
+}
+
+function applyAttendanceFilter(items, summary, mode = 'all') {
+  if (mode === 'all') return items;
+
+  return items.filter((item) => {
+    const studentId = normalizeStudentId(item);
+    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0 };
+
+    if (mode === 'logged') return stats.total > 0;
+    if (mode === 'present') return stats.present > 0;
+    if (mode === 'absent') return stats.absent > 0;
+    return true;
+  });
+}
+
+function applyCombinedFilters(items, filters, summary) {
+  const query = String(filters.query || '').trim().toLowerCase();
+  const department = String(filters.department || '').trim();
+  const level = String(filters.level || '').trim();
+  const attendanceMode = String(filters.attendance || 'all');
+
+  return items.filter((item) => {
+    const studentId = normalizeStudentId(item);
+    const fullText = `${item.name || ''} ${studentId} ${item.department || ''} ${item.level || ''}`.toLowerCase();
+    if (query && !fullText.includes(query)) return false;
+    if (department && String(item.department || '') !== department) return false;
+    if (level && String(item.level || '') !== level) return false;
+
+    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0 };
+    if (attendanceMode === 'logged' && stats.total <= 0) return false;
+    if (attendanceMode === 'present' && stats.present <= 0) return false;
+    if (attendanceMode === 'absent' && stats.absent <= 0) return false;
+
+    return true;
+  });
+}
+
+function buildRows(items, summary = new Map()) {
+  return items.map((item) => {
+    const studentId = normalizeStudentId(item);
+    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0 };
+    return [
+      studentId || '-',
+      item.name || '-',
+      item.faculty || '-',
+      item.department || '-',
+      item.level || '-',
+      stats.total,
+      stats.present,
+      stats.absent,
+      item.status || '-'
+    ];
+  });
 }
 
 function getUniqueOptions(items, key) {
@@ -13,27 +95,52 @@ function getUniqueOptions(items, key) {
 }
 
 function renderStudents(container, items) {
+  const filteredItems = applyCombinedFilters(items, currentFilters, currentAttendanceSummary);
   const card = createCard('جدول الطلاب', '');
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
-  toolbar.appendChild(createSearchBox('بحث بالاسم أو الرقم...', '', 'student-search'));
+
+  const searchBox = createSearchBox('بحث بالاسم أو الرقم...', currentFilters.query, 'student-search');
+  toolbar.appendChild(searchBox);
 
   const departments = getUniqueOptions(currentItems, 'department');
   const levels = getUniqueOptions(currentItems, 'level');
   const filters = document.createElement('div');
   filters.className = 'toolbar-group';
   filters.innerHTML = `
-    <select id="studentDepartmentFilter"><option value="">الكل الأقسام</option>${departments.map((dept) => `<option value="${dept}">${dept}</option>`).join('')}</select>
-    <select id="studentLevelFilter"><option value="">الكل المستويات</option>${levels.map((level) => `<option value="${level}">${level}</option>`).join('')}</select>
+    <select id="studentDepartmentFilter">
+      <option value="">الكل الأقسام</option>
+      ${departments.map((dept) => `<option value="${dept}" ${currentFilters.department === dept ? 'selected' : ''}>${dept}</option>`).join('')}
+    </select>
+    <select id="studentLevelFilter">
+      <option value="">الكل المستويات</option>
+      ${levels.map((level) => `<option value="${level}" ${currentFilters.level === level ? 'selected' : ''}>${level}</option>`).join('')}
+    </select>
+    <select id="studentAttendanceFilter">
+      <option value="all" ${currentFilters.attendance === 'all' ? 'selected' : ''}>الكل</option>
+      <option value="logged" ${currentFilters.attendance === 'logged' ? 'selected' : ''}>سجل دخول</option>
+      <option value="present" ${currentFilters.attendance === 'present' ? 'selected' : ''}>حضور</option>
+      <option value="absent" ${currentFilters.attendance === 'absent' ? 'selected' : ''}>غياب</option>
+    </select>
   `;
   toolbar.appendChild(filters);
   card.querySelector('.card-body').appendChild(toolbar);
 
-  if (!items.length) {
+  if (!filteredItems.length) {
     card.querySelector('.card-body').appendChild(createEmptyState('لا يوجد طلاب', 'لا توجد بيانات للطلاب في هذا الوقت.'));
   } else {
-    card.querySelector('.card-body').appendChild(createTable(['Student ID', 'الاسم', 'الكلية', 'القسم', 'المستوى', 'الحالة'], buildRows(items)));
-    card.querySelector('.card-body').appendChild(createPagination(currentPage, Math.max(1, Math.ceil(currentItems.length / 5)), (page) => {
+    card.querySelector('.card-body').appendChild(createTable([
+      'Student ID',
+      'الاسم',
+      'الكلية',
+      'القسم',
+      'المستوى',
+      'إجمالي التسجيلات',
+      'الحضور',
+      'الغياب',
+      'الحالة'
+    ], buildRows(filteredItems, currentAttendanceSummary)));
+    card.querySelector('.card-body').appendChild(createPagination(currentPage, Math.max(1, Math.ceil(filteredItems.length / 5)), (page) => {
       currentPage = page;
       const start = (page - 1) * 5;
       renderStudents(container, currentItems.slice(start, start + 5));
@@ -46,25 +153,21 @@ function renderStudents(container, items) {
   const searchInput = document.getElementById('student-search');
   const departmentFilter = document.getElementById('studentDepartmentFilter');
   const levelFilter = document.getElementById('studentLevelFilter');
+  const attendanceFilter = document.getElementById('studentAttendanceFilter');
 
-  const applyFilters = async () => {
-    const query = searchInput?.value.trim();
-    const department = departmentFilter?.value;
-    const level = levelFilter?.value;
-    const filters = {};
-    if (query) filters.query = query;
-    if (department) filters.department = department;
-    if (level) filters.level = level;
-    const result = await studentService.getStudents(filters);
-    const filtered = result?.status === 'success' ? result.data : [];
-    currentItems = filtered;
+  const applyFilters = () => {
+    currentFilters.query = searchInput?.value.trim() || '';
+    currentFilters.department = departmentFilter?.value || '';
+    currentFilters.level = levelFilter?.value || '';
+    currentFilters.attendance = attendanceFilter?.value || 'all';
     currentPage = 1;
-    renderStudents(container, filtered.slice(0, 5));
+    renderStudents(container, currentItems);
   };
 
   if (searchInput) searchInput.addEventListener('input', applyFilters);
   if (departmentFilter) departmentFilter.addEventListener('change', applyFilters);
   if (levelFilter) levelFilter.addEventListener('change', applyFilters);
+  if (attendanceFilter) attendanceFilter.addEventListener('change', applyFilters);
 }
 
 export async function initStudentsPage(container) {
@@ -74,9 +177,14 @@ export async function initStudentsPage(container) {
   container.appendChild(createLoader('جاري جلب البيانات لعرضها. الرجاء الانتظار...'));
 
   try {
-    const result = await studentService.getStudents({ page: 1, pageSize: 25 });
-    const items = result?.status === 'success' ? result.data : [];
+    const [studentsResult, attendanceResult] = await Promise.all([
+      studentService.getStudents({ page: 1, pageSize: 250 }),
+      attendanceService.getAttendance({ page: 1, pageSize: 5000 })
+    ]);
+
+    const items = studentsResult?.status === 'success' ? studentsResult.data : [];
     currentItems = items;
+    currentAttendanceSummary = buildAttendanceSummary(attendanceResult?.status === 'success' ? attendanceResult.data : []);
     renderStudents(container, items.slice(0, 5));
   } catch (error) {
     container.innerHTML = '';
