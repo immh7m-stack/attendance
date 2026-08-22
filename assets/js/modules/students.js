@@ -1,5 +1,6 @@
 import { studentService } from '../services/studentService.js';
 import { attendanceService } from '../services/attendanceService.js';
+import * as notifications from './notifications.js';
 import { createCard, createSearchBox, createTable, createPagination, createEmptyState, createLoader, createErrorState } from './components.js';
 
 let currentItems = [];
@@ -16,6 +17,23 @@ function normalizeStudentId(item = {}) {
   return String(item.studentId || item.student_id || item.id || '').trim();
 }
 
+function toDateKey(value) {
+  if (!value && value !== 0) return '';
+
+  const rawValue = String(value).trim();
+  if (!rawValue) return '';
+
+  const parsedDate = new Date(rawValue);
+  if (Number.isNaN(parsedDate.getTime())) return '';
+
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(parsedDate);
+}
+
 function buildAttendanceSummary(items = []) {
   const summary = new Map();
 
@@ -23,9 +41,24 @@ function buildAttendanceSummary(items = []) {
     const studentId = normalizeStudentId(item);
     if (!studentId) return;
 
-    const existing = summary.get(studentId) || { total: 0, present: 0, absent: 0 };
+    const existing = summary.get(studentId) || {
+      total: 0,
+      present: 0,
+      absent: 0,
+      daysPresent: new Set(),
+      allDates: new Set()
+    };
+
     const status = String(item.status || '').trim().toLowerCase();
+    const rawDate = item.date || item.session_date || item.login_date || item.attendance_date || item.created_at || item.recorded_at || item.timestamp || '';
+    const dateKey = toDateKey(rawDate);
+
     existing.total += 1;
+
+    if (dateKey) {
+      existing.allDates.add(dateKey);
+      if (status === 'present') existing.daysPresent.add(dateKey);
+    }
 
     if (status === 'present') existing.present += 1;
     if (status === 'absent') existing.absent += 1;
@@ -33,7 +66,16 @@ function buildAttendanceSummary(items = []) {
     summary.set(studentId, existing);
   });
 
-  return summary;
+  return new Map(Array.from(summary.entries()).map(([studentId, stats]) => [
+    studentId,
+    {
+      total: stats.total,
+      present: stats.present,
+      absent: stats.absent,
+      daysPresent: stats.daysPresent.size,
+      uniqueDays: stats.allDates.size
+    }
+  ]));
 }
 
 function applyAttendanceFilter(items, summary, mode = 'all') {
@@ -41,11 +83,12 @@ function applyAttendanceFilter(items, summary, mode = 'all') {
 
   return items.filter((item) => {
     const studentId = normalizeStudentId(item);
-    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0 };
+    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0, daysPresent: 0, uniqueDays: 0 };
 
     if (mode === 'logged') return stats.total > 0;
     if (mode === 'present') return stats.present > 0;
     if (mode === 'absent') return stats.absent > 0;
+    if (mode === 'repeated') return stats.daysPresent > 1;
     return true;
   });
 }
@@ -63,10 +106,11 @@ function applyCombinedFilters(items, filters, summary) {
     if (department && String(item.department || '') !== department) return false;
     if (level && String(item.level || '') !== level) return false;
 
-    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0 };
+    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0, daysPresent: 0, uniqueDays: 0 };
     if (attendanceMode === 'logged' && stats.total <= 0) return false;
     if (attendanceMode === 'present' && stats.present <= 0) return false;
     if (attendanceMode === 'absent' && stats.absent <= 0) return false;
+    if (attendanceMode === 'repeated' && stats.daysPresent <= 1) return false;
 
     return true;
   });
@@ -75,7 +119,7 @@ function applyCombinedFilters(items, filters, summary) {
 function buildRows(items, summary = new Map()) {
   return items.map((item) => {
     const studentId = normalizeStudentId(item);
-    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0 };
+    const stats = summary.get(studentId) || { total: 0, present: 0, absent: 0, daysPresent: 0, uniqueDays: 0 };
     return [
       studentId || '-',
       item.name || '-',
@@ -83,6 +127,7 @@ function buildRows(items, summary = new Map()) {
       item.department || '-',
       item.level || '-',
       stats.total,
+      stats.daysPresent,
       stats.present,
       stats.absent,
       item.status || '-'
@@ -121,6 +166,7 @@ function renderStudents(container, items) {
       <option value="logged" ${currentFilters.attendance === 'logged' ? 'selected' : ''}>سجل دخول</option>
       <option value="present" ${currentFilters.attendance === 'present' ? 'selected' : ''}>حضور</option>
       <option value="absent" ${currentFilters.attendance === 'absent' ? 'selected' : ''}>غياب</option>
+      <option value="repeated" ${currentFilters.attendance === 'repeated' ? 'selected' : ''}>متكرر (أكثر من يوم)</option>
     </select>
   `;
   toolbar.appendChild(filters);
@@ -136,6 +182,7 @@ function renderStudents(container, items) {
       'القسم',
       'المستوى',
       'إجمالي التسجيلات',
+      'أيام الحضور',
       'الحضور',
       'الغياب',
       'الحالة'
@@ -156,12 +203,19 @@ function renderStudents(container, items) {
   const attendanceFilter = document.getElementById('studentAttendanceFilter');
 
   const applyFilters = () => {
+    notifications.loading(true, 'جاري تطبيق الفلتر وجلب البيانات المفلترة...');
+
     currentFilters.query = searchInput?.value.trim() || '';
     currentFilters.department = departmentFilter?.value || '';
     currentFilters.level = levelFilter?.value || '';
     currentFilters.attendance = attendanceFilter?.value || 'all';
     currentPage = 1;
     renderStudents(container, currentItems);
+
+    setTimeout(() => {
+      notifications.loading(false);
+      notifications.success('تم تطبيق الفلتر بنجاح.');
+    }, 350);
   };
 
   if (searchInput) searchInput.addEventListener('input', applyFilters);
