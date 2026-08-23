@@ -173,6 +173,7 @@ function renderStudents(container, items = currentItems) {
       <option value="repeated" ${currentFilters.attendance === 'repeated' ? 'selected' : ''}>متكرر (أكثر من يوم)</option>
     </select>
     <button type="button" id="studentApplyFiltersBtn" class="btn btn-primary">تطبيق الفلتر</button>
+    <button type="button" id="studentResetFiltersBtn" class="btn btn-ghost">إعادة تعيين</button>
   `;
   toolbar.appendChild(filters);
   card.querySelector('.card-body').appendChild(toolbar);
@@ -206,6 +207,7 @@ function renderStudents(container, items = currentItems) {
   const levelFilter = document.getElementById('studentLevelFilter');
   const attendanceFilter = document.getElementById('studentAttendanceFilter');
   const applyButton = document.getElementById('studentApplyFiltersBtn');
+  const resetButton = document.getElementById('studentResetFiltersBtn');
 
   const applyFilters = () => {
     currentFilters.query = searchInput?.value.trim() || '';
@@ -223,12 +225,24 @@ function renderStudents(container, items = currentItems) {
     }, 350);
   };
 
+  const resetFilters = () => {
+    currentFilters = { query: '', department: '', level: '', attendance: 'all' };
+    if (searchInput) searchInput.value = '';
+    if (departmentFilter) departmentFilter.value = '';
+    if (levelFilter) levelFilter.value = '';
+    if (attendanceFilter) attendanceFilter.value = 'all';
+    currentPage = 1;
+    renderStudents(container, currentItems);
+    notifications.success('تم إعادة تعيين الفلتر والعودة إلى الكل.');
+  };
+
   if (searchInput) searchInput.addEventListener('input', () => {
     currentFilters.query = searchInput.value.trim();
     currentPage = 1;
     renderStudents(container, currentItems);
   });
   if (applyButton) applyButton.addEventListener('click', applyFilters);
+  if (resetButton) resetButton.addEventListener('click', resetFilters);
 }
 
 export async function initStudentsPage(container) {

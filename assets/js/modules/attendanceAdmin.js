@@ -91,6 +91,7 @@ function renderAttendance(container, items = currentItems) {
       <option value="late" ${currentFilters.status === 'late' ? 'selected' : ''}>متأخر</option>
     </select>
     <button type="button" id="attendanceApplyFiltersBtn" class="btn btn-primary">تطبيق الفلتر</button>
+    <button type="button" id="attendanceResetFiltersBtn" class="btn btn-ghost">إعادة تعيين</button>
   `;
   toolbar.appendChild(filters);
   card.querySelector('.card-body').appendChild(toolbar);
@@ -121,6 +122,7 @@ function renderAttendance(container, items = currentItems) {
   const levelFilter = document.getElementById('attendanceLevelFilter');
   const statusFilter = document.getElementById('attendanceStatusFilter');
   const applyButton = document.getElementById('attendanceApplyFiltersBtn');
+  const resetButton = document.getElementById('attendanceResetFiltersBtn');
 
   const applyFilters = () => {
     currentFilters.query = searchInput?.value.trim() || '';
@@ -138,12 +140,23 @@ function renderAttendance(container, items = currentItems) {
     }, 350);
   };
 
+  const resetFilters = () => {
+    currentFilters = { query: '', department: '', level: '', status: 'all' };
+    if (searchInput) searchInput.value = '';
+    if (departmentFilter) departmentFilter.value = '';
+    if (levelFilter) levelFilter.value = '';
+    if (statusFilter) statusFilter.value = 'all';
+    currentPage = 1;
+    renderAttendance(container, currentItems);
+  };
+
   if (searchInput) searchInput.addEventListener('input', () => {
     currentFilters.query = searchInput.value.trim();
     currentPage = 1;
     renderAttendance(container, currentItems);
   });
   if (applyButton) applyButton.addEventListener('click', applyFilters);
+  if (resetButton) resetButton.addEventListener('click', resetFilters);
 }
 
 export async function initAttendancePage(container) {

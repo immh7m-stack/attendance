@@ -27,6 +27,7 @@ function renderReports(container, reportData, type = currentReportType) {
     </select>
     <input id="reportDateFilter" type="date" value="${currentDateFilter}" placeholder="تاريخ" />
     <button type="button" id="reportApplyFiltersBtn" class="btn btn-primary">تطبيق الفلتر</button>
+    <button type="button" id="reportResetFiltersBtn" class="btn btn-ghost">إعادة تعيين</button>
   `;
   card.querySelector('.card-body').appendChild(toolbar);
 
@@ -52,6 +53,7 @@ function renderReports(container, reportData, type = currentReportType) {
   const reportTypeFilter = document.getElementById('reportTypeFilter');
   const reportDateFilter = document.getElementById('reportDateFilter');
   const applyButton = document.getElementById('reportApplyFiltersBtn');
+  const resetButton = document.getElementById('reportResetFiltersBtn');
 
   const applyFilters = async () => {
     const nextType = reportTypeFilter?.value || 'daily';
@@ -75,7 +77,29 @@ function renderReports(container, reportData, type = currentReportType) {
     }
   };
 
+  const resetFilters = async () => {
+    currentReportType = 'daily';
+    currentDateFilter = '';
+    if (reportTypeFilter) reportTypeFilter.value = 'daily';
+    if (reportDateFilter) reportDateFilter.value = '';
+
+    container.innerHTML = '';
+    container.appendChild(createLoader('جاري إعادة تعيين الفلتر...'));
+
+    try {
+      const result = await reportService.getReports('daily', '');
+      const data = result?.status === 'success' ? result.data : null;
+      renderReports(container, data, 'daily');
+      notifications.success('تم إعادة تعيين الفلتر والعودة إلى الكل.');
+    } catch (error) {
+      notifications.error('تعذر إعادة تعيين الفلتر.');
+      container.innerHTML = '';
+      container.appendChild(createErrorState('تعذر إعادة تعيين الفلتر. يرجى المحاولة مرة أخرى.'));
+    }
+  };
+
   if (applyButton) applyButton.addEventListener('click', applyFilters);
+  if (resetButton) resetButton.addEventListener('click', resetFilters);
 }
 
 export async function initReportsPage(container) {
