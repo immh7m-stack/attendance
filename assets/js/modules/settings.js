@@ -49,7 +49,7 @@ export async function initSettingsPage(container) {
 
       const saveResult = await settingsService.saveSettings(payload);
       if (saveResult?.status === 'success') {
-        success('تم حفظ الإعدادات بنجاح.');
+        success('تم حفظ إعدادات الموقع في الشيت بنجاح.');
       } else {
         error(saveResult?.error?.message || 'تعذر حفظ الإعدادات. حاول مرة أخرى.');
       }
