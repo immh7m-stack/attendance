@@ -40,8 +40,8 @@ export async function initSettingsPage(container) {
       event.preventDefault();
 
       const payload = {
-        university_latitude: Number(form.querySelector('#universityLatitude').value) || '',
-        university_longitude: Number(form.querySelector('#universityLongitude').value) || '',
+        university_latitude: Number(form.querySelector('#universityLatitude').value),
+        university_longitude: Number(form.querySelector('#universityLongitude').value),
         gps_radius: Number(form.querySelector('#gpsRadius').value) || APP_CONFIG.gpsRadiusMeters,
         allow_multiple_devices: form.querySelector('#allowMultipleDevices').checked,
         session_duration_hours: Number(form.querySelector('#sessionDurationHours').value) || 24

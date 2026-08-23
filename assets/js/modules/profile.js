@@ -18,28 +18,9 @@ export async function initProfilePage(container) {
         <div><strong>الصلاحيات</strong><p>${currentUser.user?.role || 'Admin'}</p></div>
         <div><strong>تاريخ الجلسة</strong><p>${new Date(currentUser.createdAt || Date.now()).toLocaleString('ar-EG')}</p></div>
       </div>
-      <form class="settings-form">
-        <label>كلمة المرور الجديدة<input id="newPassword" type="password" /></label>
-        <button type="button" class="btn btn-primary">تغيير كلمة المرور</button>
-      </form>
     `;
     container.innerHTML = '';
     container.appendChild(card);
-
-    const passwordInput = card.querySelector('#newPassword');
-    const changeButton = card.querySelector('button');
-    if (changeButton) {
-      changeButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        const password = passwordInput?.value?.trim();
-        if (!password) {
-          error('يرجى إدخال كلمة مرور جديدة.');
-          return;
-        }
-        passwordInput.value = '';
-        success('تم تغيير كلمة المرور مؤقتًا.');
-      });
-    }
   } catch (err) {
     container.innerHTML = '';
     container.appendChild(createErrorState('تعذر جلب البيانات. يرجى المحاولة مرة أخرى.'));
