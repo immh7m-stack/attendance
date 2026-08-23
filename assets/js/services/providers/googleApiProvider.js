@@ -49,8 +49,9 @@ function cleanBody(body) {
 }
 
 async function request(endpoint, { method = 'GET', body, params = {}, headers = {} } = {}) {
-  const url = method === 'GET' && Object.keys(params).length
-    ? `${buildUrl(endpoint)}&${buildQueryString(params)}`
+  const safeParams = params || {};
+  const url = method === 'GET' && Object.keys(safeParams).length
+    ? `${buildUrl(endpoint)}&${buildQueryString(safeParams)}`
     : buildUrl(endpoint);
 
   const requestHeaders = {
@@ -70,7 +71,7 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
     options.body = new URLSearchParams(filteredBody);
   }
 
-  if (method === 'GET' && Object.keys(params).length) {
+  if (method === 'GET' && Object.keys(safeParams).length) {
     options.body = undefined;
   }
 

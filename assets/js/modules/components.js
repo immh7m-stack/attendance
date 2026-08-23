@@ -1,7 +1,8 @@
 function createElement(tag, className = '', attrs = {}) {
   const element = document.createElement(tag);
   if (className) element.className = className;
-  Object.entries(attrs).forEach(([key, value]) => {
+  const safeAttrs = attrs || {};
+  Object.entries(safeAttrs).forEach(([key, value]) => {
     if (value !== undefined && value !== null) element.setAttribute(key, value);
   });
   return element;
