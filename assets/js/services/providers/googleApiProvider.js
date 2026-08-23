@@ -54,8 +54,24 @@ async function request(endpoint, { method = 'GET', body, params = {}, headers = 
     ? `${buildUrl(endpoint)}&${buildQueryString(safeParams)}`
     : buildUrl(endpoint);
 
+  let authToken = '';
+  try {
+    const adminSession = JSON.parse(localStorage.getItem('admin_session') || 'null');
+    if (adminSession && adminSession.token) {
+      authToken = adminSession.token;
+    } else {
+      const studentToken = localStorage.getItem('student_session_token');
+      if (studentToken) {
+        authToken = studentToken;
+      }
+    }
+  } catch (error) {
+    authToken = '';
+  }
+
   const requestHeaders = {
     Accept: 'application/json',
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...headers
   };
 

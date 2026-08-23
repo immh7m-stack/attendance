@@ -591,6 +591,78 @@ function sanitizeParams(params) {
   return sanitized;
 }
 
+function getAuthTokenFromRequest(e) {
+  if (!e) return '';
+  const headerToken = String(e.headers && (e.headers.Authorization || e.headers.authorization) || '').trim();
+  if (headerToken) {
+    return headerToken.replace(/^Bearer\s+/i, '').trim();
+  }
+  return String(e.parameter && (e.parameter.token || e.parameter.sessionToken || e.parameter.session_token) || '').trim();
+}
+
+function getCurrentUserFromToken(token) {
+  const trimmedToken = String(token || '').trim();
+  if (!trimmedToken) return null;
+
+  const admins = getEntityRows(SHEET_CONFIG.admins, {});
+  const admin = admins.find((row) => String(getRowValue(row, 'token') || '').trim() === trimmedToken);
+  if (admin) {
+    return {
+      role: 'admin',
+      username: getRowValue(admin, 'username') || '',
+      id: getRowValue(admin, 'id') || ''
+    };
+  }
+
+  const studentSession = findStudentSessionByToken(trimmedToken);
+  if (!studentSession) return null;
+
+  const studentId = String(getRowValue(studentSession, 'student_id') || '').trim();
+  if (!studentId) return null;
+
+  return {
+    role: 'student',
+    studentId,
+    id: studentId,
+    sessionId: getRowValue(studentSession, 'session_id') || ''
+  };
+}
+
+function requireRole(e, allowedRoles) {
+  const token = getAuthTokenFromRequest(e);
+  const user = getCurrentUserFromToken(token);
+
+  if (!user) {
+    return { ok: false, response: jsonResponse(createError('unauthorized', 'Invalid or missing token')) };
+  }
+
+  if (!allowedRoles.includes(user.role)) {
+    return { ok: false, response: jsonResponse(createError('forbidden', 'User role is not allowed')) };
+  }
+
+  return { ok: true, user };
+}
+
+function requireStudentAccess(e, body) {
+  const token = getAuthTokenFromRequest(e);
+  const user = getCurrentUserFromToken(token);
+
+  if (!user || user.role !== 'student') {
+    return { ok: false, response: jsonResponse(createError('unauthorized', 'Student auth required')) };
+  }
+
+  const requestStudentId = String(body.studentId || '').trim();
+  if (!requestStudentId) {
+    return { ok: false, response: jsonResponse(createError('validation_error', 'studentId is required')) };
+  }
+
+  if (user.studentId !== requestStudentId) {
+    return { ok: false, response: jsonResponse(createError('forbidden', 'Student does not match session')) };
+  }
+
+  return { ok: true, user };
+}
+
 function doGet(e) {
   const action = e.parameter.action || 'settings';
   const params = sanitizeParams(e.parameter || {});
@@ -601,13 +673,6 @@ function doGet(e) {
     if (route.resource === 'login') {
       return jsonResponse(handleAuthLogin(params), callback);
     }
-    if (route.resource === 'settings') {
-      if (route.id === 'location') {
-        return jsonResponse(handleGetLocationSettings());
-      }
-      return jsonResponse(createSuccess(handleGetSettings(params)));
-    }
-    // Public endpoint to calculate distance on the server side
     if (route.resource === 'calculate' && route.id === 'distance') {
       const lat1 = Number(params.lat1 || params.lat || 0);
       const lon1 = Number(params.lon1 || params.lon || 0);
@@ -616,16 +681,38 @@ function doGet(e) {
       const distance = distanceBetween(lat1, lon1, lat2, lon2);
       return jsonResponse(createSuccess({ distance }));
     }
+    if (route.resource === 'settings') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
+      if (route.id === 'location') {
+        return jsonResponse(handleGetLocationSettings());
+      }
+      return jsonResponse(createSuccess(handleGetSettings(params)));
+    }
     if (route.resource === 'students') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.students, params)));
     }
     if (route.resource === 'departments') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.departments, params)));
     }
     if (route.resource === 'levels') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.levels, params)));
     }
     if (route.resource === 'student') {
+      const auth = requireRole(e, ['admin', 'student']);
+      if (!auth.ok) return auth.response;
+      if (auth.user.role === 'student') {
+        const studentId = String(params.studentId || params.id || '').trim();
+        if (!studentId || auth.user.studentId !== studentId) {
+          return jsonResponse(createError('forbidden', 'Student can only access their own profile'));
+        }
+      }
       if (route.id === 'session') {
         return jsonResponse(handleGetStudentSession(params));
       }
@@ -641,15 +728,21 @@ function doGet(e) {
       return jsonResponse(handleGetStudent(params));
     }
     if (route.resource === 'sessions') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       if (route.id === 'active' || params.active === 'true') {
         return jsonResponse(handleGetActiveSession());
       }
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.sessions, params)));
     }
     if (route.resource === 'attendance') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.attendance, params)));
     }
     if (route.resource === 'dashboard') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       if (route.id === 'summary') {
         return jsonResponse(handleDashboardSummary(params));
       }
@@ -658,9 +751,13 @@ function doGet(e) {
       }
     }
     if (route.resource === 'reports') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       return jsonResponse(handleGetReports(route.id, params.date));
     }
     if (route.resource === 'logs') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       return jsonResponse(createSuccess(getEntityRows(SHEET_CONFIG.logs, params)));
     }
     return jsonResponse(createError('not_found', 'Action not found', { action }), 404);
@@ -787,6 +884,8 @@ function doPost(e) {
       return jsonResponse(handleStudentLogout(body));
     }
     if (route.resource === 'students') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       if (route.id && route.subAction === 'delete') {
         return jsonResponse(handleDeleteRecord(SHEET_CONFIG.students, route.id));
       }
@@ -796,6 +895,8 @@ function doPost(e) {
       return jsonResponse(handleCreateStudent(body));
     }
     if (route.resource === 'departments') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       if (route.id && route.subAction === 'delete') {
         return jsonResponse(handleDeleteRecord(SHEET_CONFIG.departments, route.id));
       }
@@ -805,6 +906,8 @@ function doPost(e) {
       return jsonResponse(handleCreateDepartment(body));
     }
     if (route.resource === 'levels') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       if (route.id && route.subAction === 'delete') {
         return jsonResponse(handleDeleteRecord(SHEET_CONFIG.levels, route.id));
       }
@@ -814,6 +917,8 @@ function doPost(e) {
       return jsonResponse(handleCreateLevel(body));
     }
     if (route.resource === 'sessions') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       if (route.id && route.subAction === 'close') {
         return jsonResponse(handleCloseSession(route.id));
       }
@@ -827,11 +932,17 @@ function doPost(e) {
     }
     if (route.resource === 'attendance') {
       if (route.id === 'batch') {
+        const auth = requireRole(e, ['admin']);
+        if (!auth.ok) return auth.response;
         return jsonResponse(handleBatchAttendance(body));
       }
+      const auth = requireStudentAccess(e, body);
+      if (!auth.ok) return auth.response;
       return jsonResponse(handleSubmitAttendance(body));
     }
     if (route.resource === 'settings') {
+      const auth = requireRole(e, ['admin']);
+      if (!auth.ok) return auth.response;
       return jsonResponse(handleSaveSettings(body));
     }
     return jsonResponse(createError('not_found', 'Action not found', { action }), 404);
