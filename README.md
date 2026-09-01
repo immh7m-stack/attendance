@@ -46,6 +46,7 @@ Create a release from GitHub after pushing the code:
 2. Click "Draft a new release"
 3. Tag version like `v1.0.0`
 4. Publish
+5. redeploy
 
 ## GitHub Actions
 A basic workflow is included at `.github/workflows/deploy.yml` for future deployment automation.
